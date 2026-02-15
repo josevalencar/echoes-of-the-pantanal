@@ -29,28 +29,13 @@ struct ContentView: View {
     private var sceneContent: some View {
         switch currentScene {
         case .setup:
-            PlaceholderSceneView(
-                sceneName: "Setup",
-                sceneNumber: 0,
-                description: "Microphone permission + Headphones recommendation",
-                onNext: advanceToNextScene
-            )
+            SetupView(onComplete: advanceToNextScene)
             
         case .silenceInvite:
-            PlaceholderSceneView(
-                sceneName: "Silence Invite",
-                sceneNumber: 1,
-                description: "\"Close your eyes. Now, listen.\"",
-                onNext: advanceToNextScene
-            )
+            SilenceInviteView(onComplete: advanceToNextScene)
             
         case .dawn:
-            PlaceholderSceneView(
-                sceneName: "Dawn",
-                sceneNumber: 2,
-                description: "The Pantanal reveals itself",
-                onNext: advanceToNextScene
-            )
+            DawnView(onBegin: advanceToNextScene)
             
         case .bioacousticsEducation:
             PlaceholderSceneView(
