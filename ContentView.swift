@@ -11,6 +11,7 @@ import SwiftUI
 
 struct ContentView: View {
     @State private var currentScene: AppScene = .setup
+    @State private var completedRounds: Set<Int> = []
     
     var body: some View {
         ZStack {
@@ -38,58 +39,57 @@ struct ContentView: View {
             DawnView(onBegin: advanceToNextScene)
             
         case .bioacousticsEducation:
-            PlaceholderSceneView(
-                sceneName: "Bioacoustics Education",
-                sceneNumber: 3,
-                description: "What is bioacoustics?",
-                onNext: advanceToNextScene
-            )
+            BioacousticsEduView(onContinue: advanceToNextScene)
             
         case .roundHarpyEagle:
-            PlaceholderSceneView(
-                sceneName: "Round 1: Harpy Eagle",
-                sceneNumber: 4,
-                description: "Sound → Name",
-                onNext: advanceToNextScene
-            )
+            if let round = GameRound.round(for: 1) {
+                RoundView(
+                    round: round,
+                    completedRounds: completedRounds,
+                    onCorrectAnswer: { completeRoundAndAdvance(1) }
+                )
+            }
             
         case .roundHowlerMonkey:
-            PlaceholderSceneView(
-                sceneName: "Round 2: Howler Monkey",
-                sceneNumber: 5,
-                description: "Sound → Image",
-                onNext: advanceToNextScene
-            )
+            if let round = GameRound.round(for: 2) {
+                RoundView(
+                    round: round,
+                    completedRounds: completedRounds,
+                    onCorrectAnswer: { completeRoundAndAdvance(2) }
+                )
+            }
             
         case .roundJabiru:
-            PlaceholderSceneView(
-                sceneName: "Round 3: Jabiru",
-                sceneNumber: 6,
-                description: "Image → Sound",
-                onNext: advanceToNextScene
-            )
+            if let round = GameRound.round(for: 3) {
+                RoundView(
+                    round: round,
+                    completedRounds: completedRounds,
+                    onCorrectAnswer: { completeRoundAndAdvance(3) }
+                )
+            }
             
         case .roundJaguar:
-            PlaceholderSceneView(
-                sceneName: "Round 4: Jaguar",
-                sceneNumber: 7,
-                description: "Sound → Name",
-                onNext: advanceToNextScene
-            )
+            if let round = GameRound.round(for: 4) {
+                RoundView(
+                    round: round,
+                    completedRounds: completedRounds,
+                    onCorrectAnswer: { completeRoundAndAdvance(4) }
+                )
+            }
             
         case .closing:
-            PlaceholderSceneView(
-                sceneName: "Closing",
-                sceneNumber: 8,
-                description: "Conservation message & credits",
-                onNext: nil
-            )
+            ClosingView()
         }
     }
     
     private func advanceToNextScene() {
         guard let nextScene = currentScene.next else { return }
         currentScene = nextScene
+    }
+    
+    private func completeRoundAndAdvance(_ roundNumber: Int) {
+        completedRounds.insert(roundNumber)
+        advanceToNextScene()
     }
     
     private func goToPreviousScene() {
@@ -99,61 +99,6 @@ struct ContentView: View {
     
     private func goToScene(_ scene: AppScene) {
         currentScene = scene
-    }
-}
-
-struct PlaceholderSceneView: View {
-    let sceneName: String
-    let sceneNumber: Int
-    let description: String
-    let onNext: (() -> Void)?
-    
-    var body: some View {
-        VStack(spacing: Spacing.verticalLarge) {
-            Spacer()
-            
-            Text("SCENE \(sceneNumber)")
-                .accentLabelStyle()
-            
-            Text(sceneName)
-                .font(.pantanalTitle())
-                .foregroundStyle(Color.textPrimary)
-                .multilineTextAlignment(.center)
-            
-            Text(description)
-                .font(.pantanalBody())
-                .foregroundStyle(Color.textSecondary)
-                .multilineTextAlignment(.center)
-            
-            Spacer()
-            
-            if let onNext {
-                Button(action: onNext) {
-                    HStack(spacing: 8) {
-                        Text("Next Scene")
-                            .font(.pantanalUI())
-                        Image(systemName: "chevron.right")
-                    }
-                    .foregroundStyle(Color.pantanalGold)
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 14)
-                    .background(
-                        Capsule()
-                            .fill(Color.pantanalGold.opacity(0.15))
-                    )
-                    .overlay(
-                        Capsule()
-                            .strokeBorder(Color.pantanalGold.opacity(0.3), lineWidth: 1)
-                    )
-                }
-                .padding(.bottom, Spacing.verticalXLarge)
-            } else {
-                Text("End of Experience")
-                    .mutedHintStyle()
-                    .padding(.bottom, Spacing.verticalXLarge)
-            }
-        }
-        .padding(.horizontal, Spacing.horizontal)
     }
 }
 
