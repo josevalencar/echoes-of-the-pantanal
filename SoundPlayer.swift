@@ -13,12 +13,25 @@ import Accelerate
 final class SoundPlayer: ObservableObject, @unchecked Sendable {
     static let shared = SoundPlayer()
     
-    @Published private(set) var isPlaying = false
+    /// Playback state for UI
+    enum PlaybackState {
+        case playing
+        case paused
+        case ended
+    }
+    
+    @Published private(set) var state: PlaybackState = .ended
     @Published private(set) var frequencyMagnitudes: [Float] = Array(repeating: 0, count: 64)
+    
+    /// Convenience computed properties
+    var isPlaying: Bool { state == .playing }
+    var isPaused: Bool { state == .paused }
+    var hasEnded: Bool { state == .ended }
     
     private var audioEngine: AVAudioEngine?
     private var playerNode: AVAudioPlayerNode?
     private var audioFile: AVAudioFile?
+    private var currentSoundFile: String?
     private var fftSetup: vDSP_DFT_Setup?
     
     private let fftSize = 1024
@@ -43,17 +56,45 @@ final class SoundPlayer: ObservableObject, @unchecked Sendable {
     func play(soundFile: String) {
         stop()
         
-        guard let url = Bundle.main.url(forResource: soundFile, withExtension: "m4a") else {
+        currentSoundFile = soundFile
+        
+        // Try multiple locations for the sound file
+        var url: URL?
+        
+        // First try: root of bundle
+        url = Bundle.main.url(forResource: soundFile, withExtension: "m4a")
+        
+        // Second try: Sounds subdirectory
+        if url == nil {
+            url = Bundle.main.url(forResource: soundFile, withExtension: "m4a", subdirectory: "Sounds")
+        }
+        
+        // Third try: direct path construction for Swift Playgrounds
+        if url == nil {
+            if let bundlePath = Bundle.main.resourcePath {
+                let directPath = URL(fileURLWithPath: bundlePath)
+                    .appendingPathComponent("Sounds")
+                    .appendingPathComponent("\(soundFile).m4a")
+                if FileManager.default.fileExists(atPath: directPath.path) {
+                    url = directPath
+                }
+            }
+        }
+        
+        guard let soundURL = url else {
             print("SoundPlayer: Could not find sound file: \(soundFile).m4a")
+            print("SoundPlayer: Bundle path: \(Bundle.main.resourcePath ?? "nil")")
             return
         }
+        
+        print("SoundPlayer: Playing \(soundURL.lastPathComponent)")
         
         do {
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.playback, mode: .default)
             try session.setActive(true)
             
-            let file = try AVAudioFile(forReading: url)
+            let file = try AVAudioFile(forReading: soundURL)
             audioFile = file
             
             let engine = AVAudioEngine()
@@ -82,51 +123,69 @@ final class SoundPlayer: ObservableObject, @unchecked Sendable {
             
             audioEngine = engine
             playerNode = player
-            
-            DispatchQueue.main.async {
-                self.isPlaying = true
-            }
+            state = .playing
             
         } catch {
             print("SoundPlayer: Failed to play sound - \(error)")
         }
     }
     
+    /// Pause playback - can be resumed
+    func pause() {
+        guard state == .playing else { return }
+        playerNode?.pause()
+        state = .paused
+    }
+    
+    /// Resume from paused state
+    func resume() {
+        guard state == .paused, playerNode != nil else { return }
+        playerNode?.play()
+        state = .playing
+    }
+    
+    /// Stop playback completely (used when user gets correct answer)
     func stop() {
         playerNode?.stop()
-        audioEngine?.mainMixerNode.removeTap(onBus: 0)
-        audioEngine?.stop()
+        
+        if let engine = audioEngine {
+            engine.mainMixerNode.removeTap(onBus: 0)
+            engine.stop()
+        }
+        
         audioEngine = nil
         playerNode = nil
         audioFile = nil
+        // Keep currentSoundFile so replay can work
         
-        DispatchQueue.main.async {
-            self.isPlaying = false
-            self.frequencyMagnitudes = Array(repeating: 0, count: self.outputBands)
-        }
+        state = .ended
+        frequencyMagnitudes = Array(repeating: 0, count: outputBands)
     }
     
+    /// Replay the sound from the beginning (clears spectrogram)
     func replay() {
-        guard let file = audioFile, let player = playerNode, let engine = audioEngine else {
-            return
-        }
-        
-        player.stop()
-        player.scheduleFile(file, at: nil) { [weak self] in
-            DispatchQueue.main.async {
-                self?.handlePlaybackComplete()
-            }
-        }
-        player.play()
-        
-        DispatchQueue.main.async {
-            self.isPlaying = true
+        guard let soundFile = currentSoundFile else { return }
+        play(soundFile: soundFile)
+    }
+    
+    /// Handle button tap based on current state
+    func handleButtonTap() {
+        switch state {
+        case .playing:
+            pause()
+        case .paused:
+            resume()
+        case .ended:
+            replay()
         }
     }
     
     private func handlePlaybackComplete() {
-        isPlaying = false
-        frequencyMagnitudes = Array(repeating: 0, count: outputBands)
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.state = .ended
+            self.frequencyMagnitudes = Array(repeating: 0, count: self.outputBands)
+        }
     }
     
     private func processAudioBuffer(_ buffer: AVAudioPCMBuffer) {
