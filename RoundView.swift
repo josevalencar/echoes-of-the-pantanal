@@ -2,10 +2,11 @@
 //  RoundView.swift
 //  Echoes Of The Pantanal
 //
-//  Created by José Vitor Alencar on 16/12/2025.
+//  Created by José Vitor Alencar on 17/02/2026.
 //
 
 // Interactive game round with spectrogram, hints, and answer options.
+// Responsive layout for iPad and iPhone in portrait orientation.
 
 import SwiftUI
 
@@ -21,23 +22,33 @@ struct RoundView: View {
     @State private var spectrogramHistory: [[Float]] = []
     @State private var frequencyMagnitudes: [Float] = []
     
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    
     private let soundPlayer = SoundPlayer.shared
+    
+    /// Adaptive layout values based on device size class
+    private var isRegularWidth: Bool { horizontalSizeClass == .regular }
+    private var maxContentWidth: CGFloat { isRegularWidth ? 600 : .infinity }
+    private var horizontalPadding: CGFloat { isRegularWidth ? 40 : 24 }
+    private var verticalSpacing: CGFloat { isRegularWidth ? 28 : 20 }
+    private var spectrogramHeight: CGFloat { isRegularWidth ? 120 : 80 }
     
     var body: some View {
         ZStack {
             backgroundGradient
             
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 20) {
+                VStack(spacing: verticalSpacing) {
                     ProgressMapView(
                         currentRound: round.id,
-                        completedRounds: completedRounds
+                        completedRounds: completedRounds,
+                        isRegularWidth: isRegularWidth
                     )
                     
-                    ChallengeBadge(type: round.challengeType)
+                    ChallengeBadge(type: round.challengeType, isRegularWidth: isRegularWidth)
                     
                     if round.challengeType == .imageToSound {
-                        AnimalRevealCard(animal: round.correctAnimal)
+                        AnimalRevealCard(animal: round.correctAnimal, isRegularWidth: isRegularWidth)
                     }
                     
                     spectrogramSection
@@ -45,7 +56,8 @@ struct RoundView: View {
                     HintSection(
                         hints: round.correctAnimal.hints,
                         revealed: hintsRevealed,
-                        onRevealMore: revealNextHint
+                        onRevealMore: revealNextHint,
+                        isRegularWidth: isRegularWidth
                     )
                     
                     AnswerOptionsView(
@@ -54,19 +66,23 @@ struct RoundView: View {
                         selectedAnswer: selectedAnswer,
                         correctAnswer: round.correctAnimal,
                         showResult: showResult,
-                        onSelect: handleAnswerSelection
+                        onSelect: handleAnswerSelection,
+                        isRegularWidth: isRegularWidth
                     )
                 }
-                .padding(.horizontal, 24)
-                .padding(.top, 20)
-                .padding(.bottom, 40)
+                .frame(maxWidth: maxContentWidth)
+                .padding(.horizontal, horizontalPadding)
+                .padding(.top, isRegularWidth ? 32 : 20)
+                .padding(.bottom, isRegularWidth ? 60 : 40)
+                .frame(maxWidth: .infinity) // Center content on iPad
             }
             .opacity(isVisible ? 1 : 0)
             
             if showResult && selectedAnswer == round.correctAnimal {
                 CorrectAnswerOverlay(
                     animal: round.correctAnimal,
-                    onContinue: onCorrectAnswer
+                    onContinue: onCorrectAnswer,
+                    isRegularWidth: isRegularWidth
                 )
                 .transition(.opacity.combined(with: .scale(scale: 0.9)))
             }
@@ -111,7 +127,9 @@ struct RoundView: View {
                 spectrogramHistory: spectrogramHistory,
                 frequencyMagnitudes: frequencyMagnitudes,
                 playbackState: soundPlayer.state,
-                onButtonTap: handlePlaybackButtonTap
+                onButtonTap: handlePlaybackButtonTap,
+                spectrogramHeight: spectrogramHeight,
+                isRegularWidth: isRegularWidth
             )
         }
     }
@@ -169,9 +187,14 @@ struct RoundView: View {
 struct ProgressMapView: View {
     let currentRound: Int
     let completedRounds: Set<Int>
+    var isRegularWidth: Bool = false
+    
+    private var dotSize: CGFloat { isRegularWidth ? 52 : 44 }
+    private var connectorWidth: CGFloat { isRegularWidth ? 32 : 20 }
+    private var spacing: CGFloat { isRegularWidth ? 16 : 12 }
     
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: spacing) {
             ForEach(1...4, id: \.self) { roundNumber in
                 let isCompleted = completedRounds.contains(roundNumber)
                 let isCurrent = roundNumber == currentRound
@@ -179,17 +202,18 @@ struct ProgressMapView: View {
                 ProgressDot(
                     number: roundNumber,
                     isCompleted: isCompleted,
-                    isCurrent: isCurrent
+                    isCurrent: isCurrent,
+                    size: dotSize
                 )
                 
                 if roundNumber < 4 {
                     Rectangle()
                         .fill(isCompleted ? Color.pantanalGold.opacity(0.5) : Color.white.opacity(0.1))
-                        .frame(width: 20, height: 2)
+                        .frame(width: connectorWidth, height: 2)
                 }
             }
         }
-        .padding(.vertical, 12)
+        .padding(.vertical, isRegularWidth ? 16 : 12)
     }
 }
 
@@ -197,12 +221,16 @@ struct ProgressDot: View {
     let number: Int
     let isCompleted: Bool
     let isCurrent: Bool
+    var size: CGFloat = 44
+    
+    private var fontSize: CGFloat { size > 48 ? 18 : 16 }
+    private var checkmarkSize: CGFloat { size > 48 ? 16 : 14 }
     
     var body: some View {
         ZStack {
             Circle()
                 .fill(isCompleted ? Color.pantanalGold.opacity(0.2) : Color.white.opacity(0.05))
-                .frame(width: 44, height: 44)
+                .frame(width: size, height: size)
             
             Circle()
                 .strokeBorder(
@@ -211,15 +239,15 @@ struct ProgressDot: View {
                     Color.white.opacity(0.15),
                     lineWidth: isCurrent ? 2 : 1
                 )
-                .frame(width: 44, height: 44)
+                .frame(width: size, height: size)
             
             if isCompleted {
                 Image(systemName: "checkmark")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.system(size: checkmarkSize, weight: .bold))
                     .foregroundStyle(Color.pantanalGold)
             } else {
                 Text("\(number)")
-                    .font(.pantanalUI(16))
+                    .font(.pantanalUI(fontSize))
                     .foregroundStyle(isCurrent ? Color.pantanalGold : Color.textMuted)
             }
         }
@@ -231,20 +259,24 @@ struct ProgressDot: View {
 
 struct ChallengeBadge: View {
     let type: GameRound.ChallengeType
+    var isRegularWidth: Bool = false
+    
+    private var badgeFontSize: CGFloat { isRegularWidth ? 11 : 9 }
+    private var instructionFontSize: CGFloat { isRegularWidth ? 17 : 15 }
     
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: isRegularWidth ? 8 : 6) {
             Text(type.badge)
-                .font(.pantanalMono(9))
+                .font(.pantanalMono(badgeFontSize))
                 .foregroundStyle(Color.textMuted)
                 .tracking(2)
             
             Text(type.instruction)
-                .font(.pantanalBody(15))
+                .font(.pantanalBody(instructionFontSize))
                 .foregroundStyle(Color.textSecondary)
                 .multilineTextAlignment(.center)
         }
-        .padding(.top, 4)
+        .padding(.top, isRegularWidth ? 8 : 4)
     }
 }
 
@@ -252,14 +284,19 @@ struct ChallengeBadge: View {
 
 struct AnimalRevealCard: View {
     let animal: Animal
+    var isRegularWidth: Bool = false
+    
+    private var emojiSize: CGFloat { isRegularWidth ? 64 : 48 }
+    private var nameSize: CGFloat { isRegularWidth ? 24 : 20 }
+    private var padding: CGFloat { isRegularWidth ? 28 : 20 }
     
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: isRegularWidth ? 12 : 8) {
             Text(animal.emoji)
-                .font(.system(size: 48))
+                .font(.system(size: emojiSize))
             
             Text(animal.name)
-                .font(.pantanalHeading(20))
+                .font(.pantanalHeading(nameSize))
                 .foregroundStyle(Color.textPrimary)
             
             Text(animal.scientificName)
@@ -267,14 +304,14 @@ struct AnimalRevealCard: View {
                 .foregroundStyle(Color.textMuted)
                 .italic()
         }
-        .padding(20)
+        .padding(padding)
         .frame(maxWidth: .infinity)
         .background(Color.white.opacity(0.03))
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: isRegularWidth ? 20 : 16)
                 .strokeBorder(Color.pantanalGold.opacity(0.2), lineWidth: 1)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .clipShape(RoundedRectangle(cornerRadius: isRegularWidth ? 20 : 16))
     }
 }
 
@@ -286,6 +323,8 @@ struct RoundRecorderDevice: View {
     let frequencyMagnitudes: [Float]
     let playbackState: SoundPlayer.PlaybackState
     let onButtonTap: () -> Void
+    var spectrogramHeight: CGFloat = 80
+    var isRegularWidth: Bool = false
     
     /// Status text based on playback state
     private var statusText: String {
@@ -305,6 +344,11 @@ struct RoundRecorderDevice: View {
         }
     }
     
+    private var horizontalPadding: CGFloat { isRegularWidth ? 16 : 12 }
+    private var cornerRadius: CGFloat { isRegularWidth ? 16 : 12 }
+    private var vuBarSize: CGFloat { isRegularWidth ? 12 : 10 }
+    private var statusFontSize: CGFloat { isRegularWidth ? 10 : 8 }
+    
     var body: some View {
         VStack(spacing: 0) {
             // Mini header with status
@@ -312,17 +356,17 @@ struct RoundRecorderDevice: View {
                 HStack(spacing: 6) {
                     Circle()
                         .fill(statusColor)
-                        .frame(width: 6, height: 6)
+                        .frame(width: isRegularWidth ? 8 : 6, height: isRegularWidth ? 8 : 6)
                     
                     Text(statusText)
-                        .font(.pantanalMono(8))
+                        .font(.pantanalMono(statusFontSize))
                         .foregroundStyle(Color.textMuted)
                 }
                 
                 Spacer()
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .padding(.horizontal, horizontalPadding + 4)
+            .padding(.vertical, isRegularWidth ? 12 : 10)
             
             // Spectrogram display
             ZStack {
@@ -333,21 +377,21 @@ struct RoundRecorderDevice: View {
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                     .padding(3)
             }
-            .frame(height: 80)
-            .padding(.horizontal, 12)
-            .padding(.bottom, 8)
+            .frame(height: spectrogramHeight)
+            .padding(.horizontal, horizontalPadding)
+            .padding(.bottom, isRegularWidth ? 12 : 8)
             
             // Controls row: VU meter + Playback button (on the right)
-            HStack(spacing: 12) {
+            HStack(spacing: isRegularWidth ? 16 : 12) {
                 // VU meter
-                HStack(spacing: 2) {
+                HStack(spacing: isRegularWidth ? 3 : 2) {
                     ForEach(0..<12, id: \.self) { index in
                         let level = averageLevel * 3.0
                         let isActive = index < Int(level * 12)
                         
                         RoundedRectangle(cornerRadius: 1)
                             .fill(vuBarColor(for: index, isActive: isActive))
-                            .frame(width: 10, height: 10)
+                            .frame(width: vuBarSize, height: vuBarSize)
                     }
                 }
                 
@@ -356,16 +400,17 @@ struct RoundRecorderDevice: View {
                 // Liquid Glass playback button (on the right)
                 GlassPlaybackButton(
                     state: playbackState,
-                    onTap: onButtonTap
+                    onTap: onButtonTap,
+                    isRegularWidth: isRegularWidth
                 )
             }
-            .padding(.horizontal, 12)
-            .padding(.bottom, 12)
+            .padding(.horizontal, horizontalPadding)
+            .padding(.bottom, isRegularWidth ? 16 : 12)
         }
         .background(Color(red: 26/255, green: 29/255, blue: 27/255))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: cornerRadius)
                 .strokeBorder(Color.white.opacity(0.06), lineWidth: 1)
         )
     }
@@ -392,9 +437,13 @@ struct RoundRecorderDevice: View {
 struct GlassPlaybackButton: View {
     let state: SoundPlayer.PlaybackState
     let onTap: () -> Void
+    var isRegularWidth: Bool = false
     
     // Off-white color for tinting the glass
     private let offWhite = Color(red: 245/255, green: 240/255, blue: 235/255)
+    
+    private var buttonSize: CGFloat { isRegularWidth ? 52 : 44 }
+    private var iconSize: CGFloat { isRegularWidth ? 22 : 18 }
     
     /// Icon changes based on playback state
     private var iconName: String {
@@ -408,9 +457,9 @@ struct GlassPlaybackButton: View {
     var body: some View {
         Button(action: onTap) {
             Image(systemName: iconName)
-                .font(.system(size: 18, weight: .semibold))
+                .font(.system(size: iconSize, weight: .semibold))
                 .foregroundStyle(Color.pantanalDeep)
-                .frame(width: 44, height: 44)
+                .frame(width: buttonSize, height: buttonSize)
         }
         .buttonStyle(.plain)
         .modifier(OffWhiteGlassModifier(tintColor: offWhite))
@@ -452,25 +501,30 @@ struct HintSection: View {
     let hints: [String]
     let revealed: Int
     let onRevealMore: () -> Void
+    var isRegularWidth: Bool = false
+    
+    private var spacing: CGFloat { isRegularWidth ? 14 : 10 }
+    private var buttonFontSize: CGFloat { isRegularWidth ? 15 : 13 }
+    private var iconSize: CGFloat { isRegularWidth ? 14 : 12 }
     
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: spacing) {
             ForEach(0..<revealed, id: \.self) { index in
-                HintCard(number: index + 1, text: hints[index])
+                HintCard(number: index + 1, text: hints[index], isRegularWidth: isRegularWidth)
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
             
             if revealed < hints.count {
                 Button(action: onRevealMore) {
-                    HStack(spacing: 6) {
+                    HStack(spacing: isRegularWidth ? 8 : 6) {
                         Image(systemName: "lightbulb")
-                            .font(.system(size: 12))
+                            .font(.system(size: iconSize))
                         Text("Give me a hint")
-                            .font(.pantanalSmall(13))
+                            .font(.pantanalSmall(buttonFontSize))
                     }
                     .foregroundStyle(Color.textSecondary)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
+                    .padding(.horizontal, isRegularWidth ? 20 : 16)
+                    .padding(.vertical, isRegularWidth ? 12 : 10)
                     .background(
                         Capsule()
                             .fill(Color.white.opacity(0.04))
@@ -486,24 +540,29 @@ struct HintSection: View {
 struct HintCard: View {
     let number: Int
     let text: String
+    var isRegularWidth: Bool = false
+    
+    private var numberSize: CGFloat { isRegularWidth ? 24 : 20 }
+    private var fontSize: CGFloat { isRegularWidth ? 15 : 13 }
+    private var padding: CGFloat { isRegularWidth ? 16 : 12 }
     
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .top, spacing: isRegularWidth ? 14 : 10) {
             Text("\(number)")
-                .font(.pantanalMono(10))
+                .font(.pantanalMono(isRegularWidth ? 12 : 10))
                 .foregroundStyle(Color.pantanalGold)
-                .frame(width: 20, height: 20)
+                .frame(width: numberSize, height: numberSize)
                 .background(Circle().fill(Color.pantanalGold.opacity(0.15)))
             
             Text(text)
-                .font(.pantanalSmall(13))
+                .font(.pantanalSmall(fontSize))
                 .foregroundStyle(Color.textSecondary)
-                .lineSpacing(4)
+                .lineSpacing(isRegularWidth ? 6 : 4)
         }
-        .padding(12)
+        .padding(padding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.white.opacity(0.02))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .clipShape(RoundedRectangle(cornerRadius: isRegularWidth ? 12 : 10))
     }
 }
 
@@ -516,14 +575,19 @@ struct AnswerOptionsView: View {
     let correctAnswer: Animal
     let showResult: Bool
     let onSelect: (Animal) -> Void
+    var isRegularWidth: Bool = false
     
-    private let columns = [
-        GridItem(.flexible(), spacing: 12),
-        GridItem(.flexible(), spacing: 12)
-    ]
+    private var gridSpacing: CGFloat { isRegularWidth ? 16 : 12 }
+    
+    private var columns: [GridItem] {
+        [
+            GridItem(.flexible(), spacing: gridSpacing),
+            GridItem(.flexible(), spacing: gridSpacing)
+        ]
+    }
     
     var body: some View {
-        LazyVGrid(columns: columns, spacing: 12) {
+        LazyVGrid(columns: columns, spacing: gridSpacing) {
             ForEach(options) { animal in
                 AnswerOptionButton(
                     animal: animal,
@@ -531,11 +595,12 @@ struct AnswerOptionsView: View {
                     isSelected: selectedAnswer?.id == animal.id,
                     isCorrect: showResult && animal.id == correctAnswer.id,
                     isWrong: showResult && selectedAnswer?.id == animal.id && animal.id != correctAnswer.id,
-                    onTap: { onSelect(animal) }
+                    onTap: { onSelect(animal) },
+                    isRegularWidth: isRegularWidth
                 )
             }
         }
-        .padding(.top, 8)
+        .padding(.top, isRegularWidth ? 12 : 8)
     }
 }
 
@@ -546,11 +611,19 @@ struct AnswerOptionButton: View {
     let isCorrect: Bool
     let isWrong: Bool
     let onTap: () -> Void
+    var isRegularWidth: Bool = false
     
     enum DisplayMode {
         case name
         case emoji
     }
+    
+    private var emojiSize: CGFloat { isRegularWidth ? 40 : 32 }
+    private var nameSize: CGFloat { isRegularWidth ? 17 : 15 }
+    private var captionSize: CGFloat { isRegularWidth ? 12 : 11 }
+    private var monoSize: CGFloat { isRegularWidth ? 10 : 9 }
+    private var verticalPadding: CGFloat { isRegularWidth ? 20 : 16 }
+    private var cornerRadius: CGFloat { isRegularWidth ? 14 : 12 }
     
     private var borderColor: Color {
         if isCorrect { return Color.pantanalLight }
@@ -568,33 +641,33 @@ struct AnswerOptionButton: View {
     
     var body: some View {
         Button(action: onTap) {
-            VStack(spacing: 8) {
+            VStack(spacing: isRegularWidth ? 10 : 8) {
                 if displayMode == .emoji {
                     Text(animal.emoji)
-                        .font(.system(size: 32))
+                        .font(.system(size: emojiSize))
                     
                     Text(animal.name)
-                        .font(.pantanalCaption())
+                        .font(.pantanalCaption(captionSize))
                         .foregroundStyle(Color.textSecondary)
                 } else {
                     Text(animal.name)
-                        .font(.pantanalUI(15))
+                        .font(.pantanalUI(nameSize))
                         .foregroundStyle(Color.textPrimary)
                     
                     Text(animal.scientificName)
-                        .font(.pantanalMono(9))
+                        .font(.pantanalMono(monoSize))
                         .foregroundStyle(Color.textMuted)
                         .italic()
                 }
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
+            .padding(.vertical, verticalPadding)
             .background(backgroundColor)
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: cornerRadius)
                     .strokeBorder(borderColor, lineWidth: isSelected || isCorrect || isWrong ? 2 : 1)
             )
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
         }
         .buttonStyle(.plain)
         .animation(.easeOut(duration: 0.2), value: isSelected)
@@ -608,38 +681,49 @@ struct AnswerOptionButton: View {
 struct CorrectAnswerOverlay: View {
     let animal: Animal
     let onContinue: () -> Void
+    var isRegularWidth: Bool = false
     
     @State private var isVisible = false
+    
+    // Adaptive sizing
+    private var badgeSize: CGFloat { isRegularWidth ? 120 : 100 }
+    private var emojiSize: CGFloat { isRegularWidth ? 52 : 44 }
+    private var headingSize: CGFloat { isRegularWidth ? 28 : 24 }
+    private var factSize: CGFloat { isRegularWidth ? 16 : 14 }
+    private var buttonFontSize: CGFloat { isRegularWidth ? 17 : 15 }
+    private var verticalSpacing: CGFloat { isRegularWidth ? 32 : 24 }
+    private var contentPadding: CGFloat { isRegularWidth ? 48 : 32 }
+    private var maxContentWidth: CGFloat { isRegularWidth ? 500 : .infinity }
     
     var body: some View {
         ZStack {
             Color.black.opacity(0.85)
                 .ignoresSafeArea()
             
-            VStack(spacing: 24) {
+            VStack(spacing: verticalSpacing) {
                 // Badge
                 ZStack {
                     Circle()
                         .fill(Color.pantanalGold.opacity(0.15))
-                        .frame(width: 100, height: 100)
+                        .frame(width: badgeSize, height: badgeSize)
                     
                     Circle()
-                        .strokeBorder(Color.pantanalGold, lineWidth: 3)
-                        .frame(width: 100, height: 100)
+                        .strokeBorder(Color.pantanalGold, lineWidth: isRegularWidth ? 4 : 3)
+                        .frame(width: badgeSize, height: badgeSize)
                     
                     Text(animal.emoji)
-                        .font(.system(size: 44))
+                        .font(.system(size: emojiSize))
                 }
                 .scaleEffect(isVisible ? 1 : 0.5)
                 .opacity(isVisible ? 1 : 0)
                 
-                VStack(spacing: 8) {
+                VStack(spacing: isRegularWidth ? 10 : 8) {
                     Text("\(animal.name) identified!")
-                        .font(.pantanalHeading(24))
+                        .font(.pantanalHeading(headingSize))
                         .foregroundStyle(Color.textPrimary)
                     
                     Text(animal.scientificName)
-                        .font(.pantanalCaption())
+                        .font(.pantanalCaption(isRegularWidth ? 13 : 11))
                         .foregroundStyle(Color.textMuted)
                         .italic()
                 }
@@ -647,23 +731,24 @@ struct CorrectAnswerOverlay: View {
                 .offset(y: isVisible ? 0 : 10)
                 
                 Text(animal.conservationFact)
-                    .font(.pantanalSmall(14))
+                    .font(.pantanalSmall(factSize))
                     .foregroundStyle(Color.textSecondary)
                     .multilineTextAlignment(.center)
-                    .lineSpacing(5)
-                    .padding(.horizontal, 24)
+                    .lineSpacing(isRegularWidth ? 7 : 5)
+                    .padding(.horizontal, isRegularWidth ? 32 : 24)
                     .opacity(isVisible ? 1 : 0)
                     .offset(y: isVisible ? 0 : 10)
                 
                 Button(action: onContinue) {
-                    HStack(spacing: 8) {
+                    HStack(spacing: isRegularWidth ? 10 : 8) {
                         Text("Next Sound")
-                            .font(.pantanalUI(15))
+                            .font(.pantanalUI(buttonFontSize))
                         Image(systemName: "arrow.right")
+                            .font(.system(size: isRegularWidth ? 15 : 13))
                     }
                     .foregroundStyle(Color.textPrimary)
-                    .padding(.horizontal, 28)
-                    .padding(.vertical, 14)
+                    .padding(.horizontal, isRegularWidth ? 36 : 28)
+                    .padding(.vertical, isRegularWidth ? 18 : 14)
                     .background(
                         Capsule()
                             .fill(Color.pantanalGold.opacity(0.2))
@@ -677,7 +762,8 @@ struct CorrectAnswerOverlay: View {
                 .opacity(isVisible ? 1 : 0)
                 .offset(y: isVisible ? 0 : 20)
             }
-            .padding(32)
+            .frame(maxWidth: maxContentWidth)
+            .padding(contentPadding)
         }
         .onAppear {
             withAnimation(.easeOut(duration: 0.5)) {

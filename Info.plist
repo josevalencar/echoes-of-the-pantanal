@@ -4,5 +4,14 @@
 <dict>
     <key>NSMicrophoneUsageDescription</key>
     <string>Echoes of the Pantanal uses your microphone to analyze environmental sounds and create live spectrograms of your surroundings.</string>
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+    </array>
+    <key>UISupportedInterfaceOrientations~ipad</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationPortraitUpsideDown</string>
+    </array>
 </dict>
 </plist>
