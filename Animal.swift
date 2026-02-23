@@ -13,7 +13,7 @@ struct Animal: Identifiable, Equatable {
     let id: String
     let name: String
     let scientificName: String
-    let emoji: String
+    let imageName: String?  // Asset catalog image name (nil for distractors without images)
     let soundFile: String
     let direction: Direction
     let conservationFact: String
@@ -43,7 +43,7 @@ extension Animal {
         id: "harpy_eagle",
         name: "Harpy Eagle",
         scientificName: "Harpia harpyja",
-        emoji: "🦅",
+        imageName: "harpy",
         soundFile: "harpia",
         direction: .up,
         conservationFact: "The Harpy Eagle is the largest raptor in the Americas. Its powerful talons can exert over 500 PSI of pressure — stronger than a wolf's bite.",
@@ -54,18 +54,18 @@ extension Animal {
         ]
     )
     
-    static let howlerMonkey = Animal(
-        id: "howler_monkey",
-        name: "Howler Monkey",
-        scientificName: "Alouatta caraya",
-        emoji: "🐒",
-        soundFile: "arara-vermelha", // Note: Using available sound
+    static let scarletMacaw = Animal(
+        id: "scarlet_macaw",
+        name: "Scarlet Macaw",
+        scientificName: "Ara macao",
+        imageName: "macaw",
+        soundFile: "arara-vermelha",
         direction: .left,
-        conservationFact: "Howler monkeys produce the loudest calls of any land animal — audible from 5 kilometers away. Their hyoid bone amplifies sound like a natural speaker.",
+        conservationFact: "The Scarlet Macaw can live up to 75 years in the wild. Their powerful beaks can crack Brazil nuts — one of the hardest nuts in the world.",
         hints: [
-            "This animal is known for its incredibly loud vocalizations.",
-            "It lives in groups in the forest canopy.",
-            "The sound resembles a deep, rumbling roar."
+            "This bird is famous for its vibrant red, yellow and blue plumage.",
+            "It lives in pairs or small flocks in the forest canopy.",
+            "One of the most colorful birds in the Americas."
         ]
     )
     
@@ -73,7 +73,7 @@ extension Animal {
         id: "jabiru",
         name: "Jabiru",
         scientificName: "Jabiru mycteria",
-        emoji: "🦩",
+        imageName: "jaburu",
         soundFile: "tuiuiu",
         direction: .down,
         conservationFact: "The Jabiru is the tallest flying bird in South America, standing up to 1.5 meters. It's the symbol of the Pantanal and builds nests that can weigh 500 kg.",
@@ -88,7 +88,7 @@ extension Animal {
         id: "jaguar",
         name: "Jaguar",
         scientificName: "Panthera onca",
-        emoji: "🐆",
+        imageName: "jaguar",
         soundFile: "onca-pintada",
         direction: .right,
         conservationFact: "The Jaguar has the strongest bite of all big cats. Unlike other cats, it kills prey by piercing the skull with its canines. The Pantanal hosts the densest jaguar population on Earth.",
@@ -99,7 +99,7 @@ extension Animal {
         ]
     )
     
-    static let allAnimals: [Animal] = [harpyEagle, howlerMonkey, jabiru, jaguar]
+    static let allAnimals: [Animal] = [harpyEagle, scarletMacaw, jabiru, jaguar]
     
     static func animal(for id: String) -> Animal? {
         allAnimals.first { $0.id == id }
@@ -113,7 +113,7 @@ extension Animal {
         id: "capybara",
         name: "Capybara",
         scientificName: "Hydrochoerus hydrochaeris",
-        emoji: "🦫",
+        imageName: nil,
         soundFile: "",
         direction: .down,
         conservationFact: "",
@@ -124,7 +124,7 @@ extension Animal {
         id: "caiman",
         name: "Yacare Caiman",
         scientificName: "Caiman yacare",
-        emoji: "🐊",
+        imageName: nil,
         soundFile: "",
         direction: .down,
         conservationFact: "",
@@ -135,18 +135,18 @@ extension Animal {
         id: "toucan",
         name: "Toco Toucan",
         scientificName: "Ramphastos toco",
-        emoji: "🐦",
+        imageName: nil,
         soundFile: "",
         direction: .up,
         conservationFact: "",
         hints: []
     )
     
-    static let macaw = Animal(
-        id: "macaw",
+    static let hyacinthMacaw = Animal(
+        id: "hyacinth_macaw",
         name: "Hyacinth Macaw",
         scientificName: "Anodorhynchus hyacinthinus",
-        emoji: "🦜",
+        imageName: nil,
         soundFile: "",
         direction: .up,
         conservationFact: "",
@@ -157,7 +157,7 @@ extension Animal {
         id: "giant_otter",
         name: "Giant Otter",
         scientificName: "Pteronura brasiliensis",
-        emoji: "🦦",
+        imageName: nil,
         soundFile: "",
         direction: .left,
         conservationFact: "",
@@ -168,7 +168,7 @@ extension Animal {
         id: "anaconda",
         name: "Yellow Anaconda",
         scientificName: "Eunectes notaeus",
-        emoji: "🐍",
+        imageName: nil,
         soundFile: "",
         direction: .right,
         conservationFact: "",
@@ -179,7 +179,7 @@ extension Animal {
         id: "tapir",
         name: "South American Tapir",
         scientificName: "Tapirus terrestris",
-        emoji: "🐘",
+        imageName: nil,
         soundFile: "",
         direction: .left,
         conservationFact: "",
@@ -190,7 +190,7 @@ extension Animal {
         id: "rhea",
         name: "Greater Rhea",
         scientificName: "Rhea americana",
-        emoji: "🦤",
+        imageName: nil,
         soundFile: "",
         direction: .down,
         conservationFact: "",

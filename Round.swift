@@ -51,15 +51,15 @@ extension GameRound {
             id: 1,
             correctAnimal: .harpyEagle,
             challengeType: .soundToName,
-            options: [.harpyEagle, .toucan, .macaw, .jabiru].shuffled()
+            options: [.harpyEagle, .toucan, .hyacinthMacaw, .jabiru].shuffled()
         ),
         
-        // Round 2: Howler Monkey - Sound → Image
+        // Round 2: Scarlet Macaw - Sound → Image
         GameRound(
             id: 2,
-            correctAnimal: .howlerMonkey,
+            correctAnimal: .scarletMacaw,
             challengeType: .soundToImage,
-            options: [.howlerMonkey, .capybara, .giantOtter, .tapir].shuffled()
+            options: [.scarletMacaw, .harpyEagle, .jabiru, .jaguar].shuffled()
         ),
         
         // Round 3: Jabiru - Image → Sound

@@ -286,14 +286,18 @@ struct AnimalRevealCard: View {
     let animal: Animal
     var isRegularWidth: Bool = false
     
-    private var emojiSize: CGFloat { isRegularWidth ? 64 : 48 }
+    private var imageSize: CGFloat { isRegularWidth ? 80 : 64 }
     private var nameSize: CGFloat { isRegularWidth ? 24 : 20 }
     private var padding: CGFloat { isRegularWidth ? 28 : 20 }
     
     var body: some View {
         VStack(spacing: isRegularWidth ? 12 : 8) {
-            Text(animal.emoji)
-                .font(.system(size: emojiSize))
+            if let imageName = animal.imageName {
+                Image(imageName)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: imageSize, height: imageSize)
+            }
             
             Text(animal.name)
                 .font(.pantanalHeading(nameSize))
@@ -591,7 +595,7 @@ struct AnswerOptionsView: View {
             ForEach(options) { animal in
                 AnswerOptionButton(
                     animal: animal,
-                    displayMode: challengeType == .soundToImage ? .emoji : .name,
+                    displayMode: challengeType == .soundToImage ? .image : .name,
                     isSelected: selectedAnswer?.id == animal.id,
                     isCorrect: showResult && animal.id == correctAnswer.id,
                     isWrong: showResult && selectedAnswer?.id == animal.id && animal.id != correctAnswer.id,
@@ -615,10 +619,10 @@ struct AnswerOptionButton: View {
     
     enum DisplayMode {
         case name
-        case emoji
+        case image
     }
     
-    private var emojiSize: CGFloat { isRegularWidth ? 40 : 32 }
+    private var imageSize: CGFloat { isRegularWidth ? 52 : 44 }
     private var nameSize: CGFloat { isRegularWidth ? 17 : 15 }
     private var captionSize: CGFloat { isRegularWidth ? 12 : 11 }
     private var monoSize: CGFloat { isRegularWidth ? 10 : 9 }
@@ -642,9 +646,13 @@ struct AnswerOptionButton: View {
     var body: some View {
         Button(action: onTap) {
             VStack(spacing: isRegularWidth ? 10 : 8) {
-                if displayMode == .emoji {
-                    Text(animal.emoji)
-                        .font(.system(size: emojiSize))
+                if displayMode == .image {
+                    if let imageName = animal.imageName {
+                        Image(imageName)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: imageSize, height: imageSize)
+                    }
                     
                     Text(animal.name)
                         .font(.pantanalCaption(captionSize))
@@ -687,7 +695,7 @@ struct CorrectAnswerOverlay: View {
     
     // Adaptive sizing
     private var badgeSize: CGFloat { isRegularWidth ? 120 : 100 }
-    private var emojiSize: CGFloat { isRegularWidth ? 52 : 44 }
+    private var imageSize: CGFloat { isRegularWidth ? 72 : 60 }
     private var headingSize: CGFloat { isRegularWidth ? 28 : 24 }
     private var factSize: CGFloat { isRegularWidth ? 16 : 14 }
     private var buttonFontSize: CGFloat { isRegularWidth ? 17 : 15 }
@@ -711,8 +719,12 @@ struct CorrectAnswerOverlay: View {
                         .strokeBorder(Color.pantanalGold, lineWidth: isRegularWidth ? 4 : 3)
                         .frame(width: badgeSize, height: badgeSize)
                     
-                    Text(animal.emoji)
-                        .font(.system(size: emojiSize))
+                    if let imageName = animal.imageName {
+                        Image(imageName)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: imageSize, height: imageSize)
+                    }
                 }
                 .scaleEffect(isVisible ? 1 : 0.5)
                 .opacity(isVisible ? 1 : 0)

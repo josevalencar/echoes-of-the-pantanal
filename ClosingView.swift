@@ -14,7 +14,7 @@ struct ClosingView: View {
     @State private var badgesVisible = false
     @State private var quoteVisible = false
     
-    private let completedAnimals: [Animal] = [.harpyEagle, .howlerMonkey, .jabiru, .jaguar]
+    private let completedAnimals: [Animal] = [.harpyEagle, .scarletMacaw, .jabiru, .jaguar]
     
     var body: some View {
         ZStack {
@@ -88,7 +88,7 @@ struct ClosingView: View {
     private var badgesRow: some View {
         HStack(spacing: 12) {
             ForEach(completedAnimals) { animal in
-                CompletionBadge(emoji: animal.emoji)
+                CompletionBadge(imageName: animal.imageName)
             }
         }
     }
@@ -229,7 +229,7 @@ struct ClosingView: View {
 // MARK: - Supporting Views
 
 struct CompletionBadge: View {
-    let emoji: String
+    let imageName: String?
     
     var body: some View {
         ZStack {
@@ -241,8 +241,12 @@ struct CompletionBadge: View {
                 .strokeBorder(Color.pantanalGold.opacity(0.5), lineWidth: 2)
                 .frame(width: 52, height: 52)
             
-            Text(emoji)
-                .font(.system(size: 22))
+            if let imageName = imageName {
+                Image(imageName)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 32, height: 32)
+            }
         }
         .shadow(color: Color.pantanalGold.opacity(0.2), radius: 8)
     }
