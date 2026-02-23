@@ -196,4 +196,39 @@ extension Animal {
         conservationFact: "",
         hints: []
     )
+    
+    // MARK: - Distractor Animals with Sound (for Image → Sound challenges)
+    
+    static let greatKiskadee = Animal(
+        id: "great_kiskadee",
+        name: "Great Kiskadee",
+        scientificName: "Pitangus sulphuratus",
+        imageName: nil,
+        soundFile: "bemtevi",
+        direction: .up,
+        conservationFact: "",
+        hints: []
+    )
+    
+    static let chachalaca = Animal(
+        id: "chachalaca",
+        name: "Chaco Chachalaca",
+        scientificName: "Ortalis canicollis",
+        imageName: nil,
+        soundFile: "aracua",
+        direction: .left,
+        conservationFact: "",
+        hints: []
+    )
+    
+    static let wailingFrog = Animal(
+        id: "wailing_frog",
+        name: "Wailing Frog",
+        scientificName: "Physalaemus albonotatus",
+        imageName: nil,
+        soundFile: "ra-chorona",
+        direction: .down,
+        conservationFact: "",
+        hints: []
+    )
 }

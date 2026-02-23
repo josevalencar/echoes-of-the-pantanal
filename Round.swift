@@ -63,11 +63,12 @@ extension GameRound {
         ),
         
         // Round 3: Jabiru - Image → Sound
+        // Uses distractor animals that have actual sound files
         GameRound(
             id: 3,
             correctAnimal: .jabiru,
             challengeType: .imageToSound,
-            options: [.jabiru, .rhea, .harpyEagle, .toucan].shuffled()
+            options: [.jabiru, .greatKiskadee, .chachalaca, .wailingFrog].shuffled()
         ),
         
         // Round 4: Jaguar - Sound → Name

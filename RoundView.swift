@@ -9,6 +9,8 @@
 // Responsive layout for iPad and iPhone in portrait orientation.
 
 import SwiftUI
+import AVFoundation
+import Accelerate
 
 struct RoundView: View {
     let round: GameRound
@@ -33,6 +35,9 @@ struct RoundView: View {
     private var verticalSpacing: CGFloat { isRegularWidth ? 28 : 20 }
     private var spectrogramHeight: CGFloat { isRegularWidth ? 120 : 80 }
     
+    /// Check if this is an imageToSound challenge
+    private var isImageToSoundChallenge: Bool { round.challengeType == .imageToSound }
+    
     var body: some View {
         ZStack {
             backgroundGradient
@@ -47,28 +52,44 @@ struct RoundView: View {
                     
                     ChallengeBadge(type: round.challengeType, isRegularWidth: isRegularWidth)
                     
-                    if round.challengeType == .imageToSound {
-                        AnimalRevealCard(animal: round.correctAnimal, isRegularWidth: isRegularWidth)
+                    if isImageToSoundChallenge {
+                        // For Image → Sound: Show animal image without name
+                        AnimalRevealCard(
+                            animal: round.correctAnimal,
+                            showName: false,
+                            isRegularWidth: isRegularWidth
+                        )
+                        
+                        // Show sound options as spectrograms
+                        SoundOptionsView(
+                            options: round.options,
+                            correctAnimal: round.correctAnimal,
+                            selectedAnswer: selectedAnswer,
+                            showResult: showResult,
+                            onSelect: handleAnswerSelection,
+                            isRegularWidth: isRegularWidth
+                        )
+                    } else {
+                        // Standard challenge: Single spectrogram + text/image options
+                        spectrogramSection
+                        
+                        HintSection(
+                            hints: round.correctAnimal.hints,
+                            revealed: hintsRevealed,
+                            onRevealMore: revealNextHint,
+                            isRegularWidth: isRegularWidth
+                        )
+                        
+                        AnswerOptionsView(
+                            options: round.options,
+                            challengeType: round.challengeType,
+                            selectedAnswer: selectedAnswer,
+                            correctAnswer: round.correctAnimal,
+                            showResult: showResult,
+                            onSelect: handleAnswerSelection,
+                            isRegularWidth: isRegularWidth
+                        )
                     }
-                    
-                    spectrogramSection
-                    
-                    HintSection(
-                        hints: round.correctAnimal.hints,
-                        revealed: hintsRevealed,
-                        onRevealMore: revealNextHint,
-                        isRegularWidth: isRegularWidth
-                    )
-                    
-                    AnswerOptionsView(
-                        options: round.options,
-                        challengeType: round.challengeType,
-                        selectedAnswer: selectedAnswer,
-                        correctAnswer: round.correctAnimal,
-                        showResult: showResult,
-                        onSelect: handleAnswerSelection,
-                        isRegularWidth: isRegularWidth
-                    )
                 }
                 .frame(maxWidth: maxContentWidth)
                 .padding(.horizontal, horizontalPadding)
@@ -91,10 +112,12 @@ struct RoundView: View {
             withAnimation(.easeOut(duration: 0.6)) {
                 isVisible = true
             }
-            // Auto-play the sound when the round appears
-            // play() internally calls stop() first, so no need for onDisappear cleanup
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                soundPlayer.play(soundFile: round.correctAnimal.soundFile)
+            // Only auto-play for non-imageToSound challenges
+            // For imageToSound, user controls playback
+            if !isImageToSoundChallenge {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                    soundPlayer.play(soundFile: round.correctAnimal.soundFile)
+                }
             }
         }
         .onReceive(soundPlayer.$frequencyMagnitudes) { newValue in
@@ -284,9 +307,16 @@ struct ChallengeBadge: View {
 
 struct AnimalRevealCard: View {
     let animal: Animal
+    let showName: Bool
     var isRegularWidth: Bool = false
     
-    private var imageSize: CGFloat { isRegularWidth ? 80 : 64 }
+    init(animal: Animal, showName: Bool = true, isRegularWidth: Bool = false) {
+        self.animal = animal
+        self.showName = showName
+        self.isRegularWidth = isRegularWidth
+    }
+    
+    private var imageSize: CGFloat { isRegularWidth ? 100 : 80 }
     private var nameSize: CGFloat { isRegularWidth ? 24 : 20 }
     private var padding: CGFloat { isRegularWidth ? 28 : 20 }
     
@@ -299,14 +329,21 @@ struct AnimalRevealCard: View {
                     .frame(width: imageSize, height: imageSize)
             }
             
-            Text(animal.name)
-                .font(.pantanalHeading(nameSize))
-                .foregroundStyle(Color.textPrimary)
-            
-            Text(animal.scientificName)
-                .font(.pantanalCaption())
-                .foregroundStyle(Color.textMuted)
-                .italic()
+            if showName {
+                Text(animal.name)
+                    .font(.pantanalHeading(nameSize))
+                    .foregroundStyle(Color.textPrimary)
+                
+                Text(animal.scientificName)
+                    .font(.pantanalCaption())
+                    .foregroundStyle(Color.textMuted)
+                    .italic()
+            } else {
+                // Mystery label for image-to-sound challenge
+                Text("?")
+                    .font(.pantanalHeading(nameSize))
+                    .foregroundStyle(Color.pantanalGold)
+            }
         }
         .padding(padding)
         .frame(maxWidth: .infinity)
@@ -681,6 +718,487 @@ struct AnswerOptionButton: View {
         .animation(.easeOut(duration: 0.2), value: isSelected)
         .animation(.easeOut(duration: 0.2), value: isCorrect)
         .animation(.easeOut(duration: 0.2), value: isWrong)
+    }
+}
+
+// MARK: - Sound Options View (for Image → Sound challenges)
+
+/// Displays a 2x2 grid of sound options with spectrograms
+/// Each option can be played independently before the user makes a selection
+struct SoundOptionsView: View {
+    let options: [Animal]
+    let correctAnimal: Animal
+    let selectedAnswer: Animal?
+    let showResult: Bool
+    let onSelect: (Animal) -> Void
+    var isRegularWidth: Bool = false
+    
+    private var gridSpacing: CGFloat { isRegularWidth ? 16 : 12 }
+    
+    private var columns: [GridItem] {
+        [
+            GridItem(.flexible(), spacing: gridSpacing),
+            GridItem(.flexible(), spacing: gridSpacing)
+        ]
+    }
+    
+    var body: some View {
+        LazyVGrid(columns: columns, spacing: gridSpacing) {
+            ForEach(options) { animal in
+                SoundOptionCard(
+                    animal: animal,
+                    isSelected: selectedAnswer?.id == animal.id,
+                    isCorrect: showResult && animal.id == correctAnimal.id,
+                    isWrong: showResult && selectedAnswer?.id == animal.id && animal.id != correctAnimal.id,
+                    onSelect: { onSelect(animal) },
+                    isRegularWidth: isRegularWidth
+                )
+            }
+        }
+    }
+}
+
+/// Individual sound option card with playable spectrogram (similar to RoundRecorderDevice)
+struct SoundOptionCard: View {
+    let animal: Animal
+    let isSelected: Bool
+    let isCorrect: Bool
+    let isWrong: Bool
+    let onSelect: () -> Void
+    var isRegularWidth: Bool = false
+    
+    @StateObject private var optionSoundPlayer = OptionSoundPlayer()
+    @State private var spectrogramHistory: [[Float]] = []
+    
+    private var spectrogramHeight: CGFloat { isRegularWidth ? 80 : 64 }
+    private var cornerRadius: CGFloat { isRegularWidth ? 14 : 12 }
+    private var buttonSize: CGFloat { isRegularWidth ? 40 : 34 }
+    private var iconSize: CGFloat { isRegularWidth ? 16 : 14 }
+    private var statusFontSize: CGFloat { isRegularWidth ? 9 : 7 }
+    private var vuBarSize: CGFloat { isRegularWidth ? 8 : 6 }
+    
+    private var borderColor: Color {
+        if isCorrect { return Color.pantanalLight }
+        if isWrong { return Color.specRed }
+        if isSelected { return Color.pantanalGold }
+        return Color.white.opacity(0.1)
+    }
+    
+    private var borderWidth: CGFloat {
+        isSelected || isCorrect || isWrong ? 2 : 1
+    }
+    
+    /// Status text based on playback state
+    private var statusText: String {
+        switch optionSoundPlayer.state {
+        case .playing: return "PLAYING"
+        case .paused: return "PAUSED"
+        case .ended: return "TAP TO PLAY"
+        }
+    }
+    
+    /// Status indicator color
+    private var statusColor: Color {
+        switch optionSoundPlayer.state {
+        case .playing: return Color.specRed
+        case .paused: return Color.pantanalGold
+        case .ended: return Color.textMuted
+        }
+    }
+    
+    private var averageLevel: Float {
+        guard !optionSoundPlayer.frequencyMagnitudes.isEmpty else { return 0 }
+        return optionSoundPlayer.frequencyMagnitudes.reduce(0, +) / Float(optionSoundPlayer.frequencyMagnitudes.count)
+    }
+    
+    // Off-white color for tinting the glass button
+    private let offWhite = Color(red: 245/255, green: 240/255, blue: 235/255)
+    
+    var body: some View {
+        Button(action: onSelect) {
+            VStack(spacing: 0) {
+                // Header with status indicator
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(statusColor)
+                        .frame(width: isRegularWidth ? 6 : 5, height: isRegularWidth ? 6 : 5)
+                    
+                    Text(statusText)
+                        .font(.pantanalMono(statusFontSize))
+                        .foregroundStyle(Color.textMuted)
+                    
+                    Spacer()
+                    
+                    // Status indicator for correct/wrong
+                    if isCorrect {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(Color.pantanalLight)
+                            .font(.system(size: iconSize))
+                    } else if isWrong {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(Color.specRed)
+                            .font(.system(size: iconSize))
+                    }
+                }
+                .padding(.horizontal, isRegularWidth ? 12 : 10)
+                .padding(.top, isRegularWidth ? 10 : 8)
+                .padding(.bottom, isRegularWidth ? 6 : 4)
+                
+                // Spectrogram display
+                ZStack {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color(red: 10/255, green: 13/255, blue: 11/255))
+                    
+                    BrightSpectrogramCanvas(history: spectrogramHistory)
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                        .padding(2)
+                }
+                .frame(height: spectrogramHeight)
+                .padding(.horizontal, isRegularWidth ? 10 : 8)
+                .padding(.bottom, isRegularWidth ? 8 : 6)
+                
+                // Controls row: VU meter + Play button
+                HStack(spacing: isRegularWidth ? 10 : 8) {
+                    // Mini VU meter
+                    HStack(spacing: 2) {
+                        ForEach(0..<8, id: \.self) { index in
+                            let level = averageLevel * 3.0
+                            let isActive = index < Int(level * 8)
+                            
+                            RoundedRectangle(cornerRadius: 1)
+                                .fill(vuBarColor(for: index, isActive: isActive))
+                                .frame(width: vuBarSize, height: vuBarSize)
+                        }
+                    }
+                    
+                    Spacer()
+                    
+                    // Play/Pause button with Liquid Glass style
+                    Button(action: togglePlayback) {
+                        Image(systemName: playbackIcon)
+                            .font(.system(size: iconSize, weight: .semibold))
+                            .foregroundStyle(Color.pantanalDeep)
+                            .frame(width: buttonSize, height: buttonSize)
+                    }
+                    .buttonStyle(.plain)
+                    .modifier(OffWhiteGlassModifier(tintColor: offWhite))
+                }
+                .padding(.horizontal, isRegularWidth ? 10 : 8)
+                .padding(.bottom, isRegularWidth ? 10 : 8)
+            }
+            .background(Color(red: 26/255, green: 29/255, blue: 27/255))
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .strokeBorder(borderColor, lineWidth: borderWidth)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(isCorrect || isWrong)
+        .onReceive(optionSoundPlayer.$frequencyMagnitudes) { newValue in
+            if optionSoundPlayer.isPlaying {
+                updateSpectrogramHistory(newValue)
+            }
+        }
+        .onDisappear {
+            optionSoundPlayer.stop()
+        }
+    }
+    
+    private var playbackIcon: String {
+        switch optionSoundPlayer.state {
+        case .playing: return "pause.fill"
+        case .paused: return "play.fill"
+        case .ended: return "play.fill"
+        }
+    }
+    
+    private func togglePlayback() {
+        if optionSoundPlayer.state == .playing {
+            optionSoundPlayer.pause()
+        } else if optionSoundPlayer.state == .paused {
+            optionSoundPlayer.resume()
+        } else {
+            // Clear history when starting fresh
+            spectrogramHistory = []
+            optionSoundPlayer.play(soundFile: animal.soundFile)
+        }
+    }
+    
+    private func updateSpectrogramHistory(_ magnitudes: [Float]) {
+        spectrogramHistory.append(magnitudes)
+        if spectrogramHistory.count > 40 {
+            spectrogramHistory.removeFirst()
+        }
+    }
+    
+    private func vuBarColor(for index: Int, isActive: Bool) -> Color {
+        guard isActive else { return Color.white.opacity(0.05) }
+        
+        switch index {
+        case 0...3: return Color.pantanalLight.opacity(0.7)
+        case 4...5: return Color.pantanalGold.opacity(0.6)
+        case 6: return Color.pantanalAmber.opacity(0.5)
+        default: return Color.specRed.opacity(0.5)
+        }
+    }
+}
+
+// MARK: - Bright Spectrogram Canvas (for sound options with more vivid colors)
+
+/// A spectrogram canvas with brighter, more vivid colors matching the main recorder
+struct BrightSpectrogramCanvas: View {
+    let history: [[Float]]
+    
+    private let displayRows = 32
+    
+    var body: some View {
+        Canvas { context, size in
+            drawSpectrogram(context: context, size: size)
+        }
+    }
+    
+    private func drawSpectrogram(context: GraphicsContext, size: CGSize) {
+        guard !history.isEmpty else {
+            drawEmptyState(context: context, size: size)
+            return
+        }
+        
+        let maxColumns = 40
+        let colWidth = size.width / CGFloat(maxColumns)
+        let rowHeight = size.height / CGFloat(displayRows)
+        
+        for (colIndex, magnitudes) in history.enumerated() {
+            let x = CGFloat(colIndex) * colWidth
+            
+            let bandsToDisplay = min(magnitudes.count, displayRows)
+            for row in 0..<bandsToDisplay {
+                let invertedRow = displayRows - 1 - row
+                let y = CGFloat(invertedRow) * rowHeight
+                
+                let amplitude = Double(magnitudes[row])
+                let boostedAmplitude = min(1.0, amplitude * 2.5)
+                let color = spectrogramColor(for: boostedAmplitude)
+                
+                let rect = CGRect(x: x + 0.5, y: y + 0.5, width: colWidth - 1, height: rowHeight - 1)
+                context.fill(Path(roundedRect: rect, cornerRadius: 1), with: .color(color))
+            }
+        }
+    }
+    
+    private func drawEmptyState(context: GraphicsContext, size: CGSize) {
+        let columns = 40
+        let rows = displayRows
+        let colWidth = size.width / CGFloat(columns)
+        let rowHeight = size.height / CGFloat(rows)
+        
+        for col in 0..<columns {
+            for row in 0..<rows {
+                let x = CGFloat(col) * colWidth
+                let y = CGFloat(row) * rowHeight
+                let rect = CGRect(x: x + 0.5, y: y + 0.5, width: colWidth - 1, height: rowHeight - 1)
+                context.fill(Path(roundedRect: rect, cornerRadius: 1), with: .color(Color.pantanalGold.opacity(0.03)))
+            }
+        }
+    }
+    
+    private func spectrogramColor(for amplitude: Double) -> Color {
+        if amplitude < 0.1 {
+            return Color.pantanalGold.opacity(0.03)
+        } else if amplitude < 0.25 {
+            return Color.pantanalGold.opacity(amplitude * 1.2)
+        } else if amplitude < 0.5 {
+            return Color.specYellow.opacity(amplitude * 1.1)
+        } else if amplitude < 0.75 {
+            return Color.specOrange.opacity(min(1.0, amplitude * 1.2))
+        } else {
+            return Color.specRed.opacity(min(1.0, amplitude * 1.1))
+        }
+    }
+}
+
+/// Separate sound player instance for each sound option
+/// This allows multiple options to maintain their own playback state
+final class OptionSoundPlayer: ObservableObject, @unchecked Sendable {
+    enum PlaybackState {
+        case playing
+        case paused
+        case ended
+    }
+    
+    @Published private(set) var state: PlaybackState = .ended
+    @Published private(set) var frequencyMagnitudes: [Float] = Array(repeating: 0, count: 64)
+    
+    var isPlaying: Bool { state == .playing }
+    
+    private var audioEngine: AVAudioEngine?
+    private var playerNode: AVAudioPlayerNode?
+    private var audioFile: AVAudioFile?
+    private var currentSoundFile: String?
+    private var fftSetup: vDSP_DFT_Setup?
+    
+    private let fftSize = 1024
+    private let outputBands = 64
+    private let processingQueue = DispatchQueue(label: "com.pantanal.option.processing")
+    
+    init() {
+        fftSetup = vDSP_DFT_zop_CreateSetup(
+            nil,
+            vDSP_Length(fftSize),
+            .FORWARD
+        )
+    }
+    
+    deinit {
+        stop()
+        if let setup = fftSetup {
+            vDSP_DFT_DestroySetup(setup)
+        }
+    }
+    
+    func play(soundFile: String) {
+        stop()
+        currentSoundFile = soundFile
+        
+        // Try multiple locations for the sound file
+        var url: URL?
+        url = Bundle.main.url(forResource: soundFile, withExtension: "m4a")
+        
+        if url == nil {
+            url = Bundle.main.url(forResource: soundFile, withExtension: "m4a", subdirectory: "Sounds")
+        }
+        
+        if url == nil {
+            if let bundlePath = Bundle.main.resourcePath {
+                let directPath = URL(fileURLWithPath: bundlePath)
+                    .appendingPathComponent("Sounds")
+                    .appendingPathComponent("\(soundFile).m4a")
+                if FileManager.default.fileExists(atPath: directPath.path) {
+                    url = directPath
+                }
+            }
+        }
+        
+        guard let soundURL = url else {
+            print("OptionSoundPlayer: Could not find sound file: \(soundFile).m4a")
+            return
+        }
+        
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playback, mode: .default)
+            try session.setActive(true)
+            
+            let file = try AVAudioFile(forReading: soundURL)
+            audioFile = file
+            
+            let engine = AVAudioEngine()
+            let player = AVAudioPlayerNode()
+            
+            engine.attach(player)
+            engine.connect(player, to: engine.mainMixerNode, format: file.processingFormat)
+            
+            let format = engine.mainMixerNode.outputFormat(forBus: 0)
+            engine.mainMixerNode.installTap(onBus: 0, bufferSize: UInt32(fftSize), format: format) { [weak self] buffer, _ in
+                self?.processingQueue.async {
+                    self?.processAudioBuffer(buffer)
+                }
+            }
+            
+            try engine.start()
+            
+            player.scheduleFile(file, at: nil) { [weak self] in
+                DispatchQueue.main.async {
+                    self?.state = .ended
+                    self?.frequencyMagnitudes = Array(repeating: 0, count: 64)
+                }
+            }
+            
+            player.play()
+            
+            audioEngine = engine
+            playerNode = player
+            state = .playing
+            
+        } catch {
+            print("OptionSoundPlayer: Failed to play sound - \(error)")
+        }
+    }
+    
+    func pause() {
+        guard state == .playing else { return }
+        playerNode?.pause()
+        state = .paused
+    }
+    
+    func resume() {
+        guard state == .paused, playerNode != nil else { return }
+        playerNode?.play()
+        state = .playing
+    }
+    
+    func stop() {
+        playerNode?.stop()
+        
+        if let engine = audioEngine {
+            engine.mainMixerNode.removeTap(onBus: 0)
+            engine.stop()
+        }
+        
+        audioEngine = nil
+        playerNode = nil
+        audioFile = nil
+        state = .ended
+        frequencyMagnitudes = Array(repeating: 0, count: outputBands)
+    }
+    
+    private func processAudioBuffer(_ buffer: AVAudioPCMBuffer) {
+        guard let channelData = buffer.floatChannelData?[0],
+              let setup = fftSetup else { return }
+        
+        let frameCount = Int(buffer.frameLength)
+        guard frameCount >= fftSize else { return }
+        
+        var realInput = [Float](repeating: 0, count: fftSize)
+        var imagInput = [Float](repeating: 0, count: fftSize)
+        var realOutput = [Float](repeating: 0, count: fftSize)
+        var imagOutput = [Float](repeating: 0, count: fftSize)
+        
+        for i in 0..<fftSize {
+            realInput[i] = channelData[i]
+        }
+        
+        vDSP_DFT_Execute(setup, &realInput, &imagInput, &realOutput, &imagOutput)
+        
+        var magnitudes = [Float](repeating: 0, count: fftSize / 2)
+        for i in 0..<(fftSize / 2) {
+            magnitudes[i] = sqrt(realOutput[i] * realOutput[i] + imagOutput[i] * imagOutput[i])
+        }
+        
+        let bandSize = (fftSize / 2) / outputBands
+        var bandMagnitudes = [Float](repeating: 0, count: outputBands)
+        
+        for band in 0..<outputBands {
+            let startIndex = band * bandSize
+            let endIndex = min(startIndex + bandSize, fftSize / 2)
+            var sum: Float = 0
+            for i in startIndex..<endIndex {
+                sum += magnitudes[i]
+            }
+            bandMagnitudes[band] = sum / Float(endIndex - startIndex)
+        }
+        
+        var maxMagnitude: Float = 0
+        vDSP_maxv(bandMagnitudes, 1, &maxMagnitude, vDSP_Length(outputBands))
+        
+        if maxMagnitude > 0 {
+            var scale = 1.0 / maxMagnitude
+            vDSP_vsmul(bandMagnitudes, 1, &scale, &bandMagnitudes, 1, vDSP_Length(outputBands))
+        }
+        
+        DispatchQueue.main.async { [weak self] in
+            self?.frequencyMagnitudes = bandMagnitudes
+        }
     }
 }
 
