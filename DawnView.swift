@@ -2,7 +2,7 @@
 //  DawnView.swift
 //  Echoes Of The Pantanal
 //
-//  Created by José Vitor Alencar on 22/02/2026.
+//  Created by José Vitor Alencar on 23/02/26.
 //
 
 // Scene 2: Dawn in the Pantanal — the emotional centerpiece with layered landscape.
@@ -1167,7 +1167,10 @@ struct DawnBottomSection: View {
     
     var body: some View {
         VStack(spacing: 16) {
-            Button(action: onBegin) {
+            Button {
+                SoundPlayer.shared.stop()
+                onBegin()
+            } label: {
                 HStack(spacing: 10) {
                     Image(systemName: "headphones")
                         .font(.system(size: 16, weight: .regular))

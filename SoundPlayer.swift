@@ -2,10 +2,11 @@
 //  SoundPlayer.swift
 //  Echoes Of The Pantanal
 //
-//  Created by José Vitor Alencar on 16/12/2025.
+//  Created by José Vitor Alencar on 23/02/26.
 //
 
 // Audio playback manager for bundled animal sounds with FFT analysis.
+// Integrates with HapticManager for synchronized tactile feedback.
 
 import AVFoundation
 import Accelerate
@@ -32,6 +33,8 @@ final class SoundPlayer: ObservableObject, @unchecked Sendable {
     private var playerNode: AVAudioPlayerNode?
     private var audioFile: AVAudioFile?
     private var currentSoundFile: String?
+    private var currentAnimalId: String?
+    private var isLooping: Bool = false
     private var fftSetup: vDSP_DFT_Setup?
     
     private let fftSize = 1024
@@ -53,10 +56,12 @@ final class SoundPlayer: ObservableObject, @unchecked Sendable {
         }
     }
     
-    func play(soundFile: String) {
+    func play(soundFile: String, loop: Bool = false, animalId: String? = nil) {
         stop()
         
         currentSoundFile = soundFile
+        isLooping = loop
+        currentAnimalId = animalId
         
         // Try multiple locations for the sound file
         var url: URL?
@@ -87,7 +92,7 @@ final class SoundPlayer: ObservableObject, @unchecked Sendable {
             return
         }
         
-        print("SoundPlayer: Playing \(soundURL.lastPathComponent)")
+        print("SoundPlayer: Playing \(soundURL.lastPathComponent)\(loop ? " (looping)" : "")")
         
         do {
             let session = AVAudioSession.sharedInstance()
@@ -113,9 +118,20 @@ final class SoundPlayer: ObservableObject, @unchecked Sendable {
             
             try engine.start()
             
-            player.scheduleFile(file, at: nil) { [weak self] in
-                DispatchQueue.main.async {
-                    self?.handlePlaybackComplete()
+            if loop {
+                // For looping, read the entire file into a buffer and schedule with .loops option
+                let frameCount = AVAudioFrameCount(file.length)
+                guard let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: frameCount) else {
+                    print("SoundPlayer: Failed to create buffer for looping")
+                    return
+                }
+                try file.read(into: buffer)
+                player.scheduleBuffer(buffer, at: nil, options: .loops, completionHandler: nil)
+            } else {
+                player.scheduleFile(file, at: nil) { [weak self] in
+                    DispatchQueue.main.async {
+                        self?.handlePlaybackComplete()
+                    }
                 }
             }
             
@@ -124,6 +140,9 @@ final class SoundPlayer: ObservableObject, @unchecked Sendable {
             audioEngine = engine
             playerNode = player
             state = .playing
+            
+            // Start continuous haptic feedback synchronized with audio playback
+            HapticManager.shared.startContinuousHaptic()
             
         } catch {
             print("SoundPlayer: Failed to play sound - \(error)")
@@ -153,6 +172,9 @@ final class SoundPlayer: ObservableObject, @unchecked Sendable {
             engine.stop()
         }
         
+        // Stop haptic feedback
+        HapticManager.shared.stopContinuousHaptic()
+        
         audioEngine = nil
         playerNode = nil
         audioFile = nil
@@ -165,7 +187,7 @@ final class SoundPlayer: ObservableObject, @unchecked Sendable {
     /// Replay the sound from the beginning (clears spectrogram)
     func replay() {
         guard let soundFile = currentSoundFile else { return }
-        play(soundFile: soundFile)
+        play(soundFile: soundFile, animalId: currentAnimalId)
     }
     
     /// Handle button tap based on current state
@@ -181,6 +203,9 @@ final class SoundPlayer: ObservableObject, @unchecked Sendable {
     }
     
     private func handlePlaybackComplete() {
+        // Stop haptic feedback when audio ends
+        HapticManager.shared.stopContinuousHaptic()
+        
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             self.state = .ended
@@ -231,6 +256,9 @@ final class SoundPlayer: ObservableObject, @unchecked Sendable {
             var scale = 1.0 / maxMagnitude
             vDSP_vsmul(bandMagnitudes, 1, &scale, &bandMagnitudes, 1, vDSP_Length(outputBands))
         }
+        
+        // Feed frequency data to haptic manager for real-time audio-reactive haptics
+        HapticManager.shared.updateWithFrequencyData(bandMagnitudes)
         
         DispatchQueue.main.async { [weak self] in
             self?.frequencyMagnitudes = bandMagnitudes

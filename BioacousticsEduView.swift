@@ -84,21 +84,21 @@ struct BioacousticsEduView: View {
     private var factsSection: some View {
         VStack(spacing: 10) {
             FactCard(
-                emoji: "🎙",
+                systemImage: "mic.fill",
                 title: "Field Recorders",
                 description: "Capture frequencies from bat ultrasound to jaguar infrasound that our ears cannot perceive.",
                 tintColor: .pantanalLight
             )
 
             FactCard(
-                emoji: "📊",
+                systemImage: "waveform.path.ecg",
                 title: "Spectrograms",
                 description: "Turn sound into image. Warm colors mean high volume. Each frequency band reveals a species.",
                 tintColor: .pantanalGold
             )
 
             FactCard(
-                emoji: "🧠",
+                systemImage: "brain.head.profile",
                 title: "Natural Soundscapes",
                 description: "Reduce cortisol and improve focus. Nature's \"silence\" is actually a concert of life.",
                 tintColor: Color(red: 26/255, green: 153/255, blue: 214/255)
@@ -153,15 +153,16 @@ struct BioacousticsEduView: View {
 }
 
 struct FactCard: View {
-    let emoji: String
+    let systemImage: String
     let title: String
     let description: String
     let tintColor: Color
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            Text(emoji)
-                .font(.system(size: 16))
+            Image(systemName: systemImage)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(tintColor)
                 .frame(width: 36, height: 36)
                 .background(tintColor.opacity(0.08))
                 .clipShape(RoundedRectangle(cornerRadius: 10))

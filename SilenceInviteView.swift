@@ -81,7 +81,11 @@ struct DarknessPhaseView: View {
                 }
             }
             
-            try? await Task.sleep(for: .seconds(2.5))
+            // Start playing intro soundscape after 2 seconds (user reads text, closes eyes)
+            try? await Task.sleep(for: .seconds(2))
+            SoundPlayer.shared.play(soundFile: "intro", loop: true)
+            
+            try? await Task.sleep(for: .seconds(0.5))
             
             await MainActor.run {
                 withAnimation(.easeInOut(duration: 1.5)) {

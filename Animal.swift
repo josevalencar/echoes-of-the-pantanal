@@ -2,7 +2,7 @@
 //  Animal.swift
 //  Echoes Of The Pantanal
 //
-//  Created by José Vitor Alencar on 16/12/2025.
+//  Created by José Vitor Alencar on 23/02/26.
 //
 
 // Data model for Pantanal wildlife species.

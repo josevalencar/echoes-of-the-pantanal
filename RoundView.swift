@@ -2,7 +2,7 @@
 //  RoundView.swift
 //  Echoes Of The Pantanal
 //
-//  Created by José Vitor Alencar on 17/02/2026.
+//  Created by José Vitor Alencar on 23/02/26.
 //
 
 // Interactive game round with spectrogram, hints, and answer options.
@@ -116,7 +116,10 @@ struct RoundView: View {
             // For imageToSound, user controls playback
             if !isImageToSoundChallenge {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                    soundPlayer.play(soundFile: round.correctAnimal.soundFile)
+                    soundPlayer.play(
+                        soundFile: round.correctAnimal.soundFile,
+                        animalId: round.correctAnimal.id
+                    )
                 }
             }
         }
@@ -170,14 +173,21 @@ struct RoundView: View {
         guard !showResult else { return }
         selectedAnswer = animal
         
+        // Haptic feedback for selection
+        HapticManager.shared.playSelectionHaptic()
+        
         // Brief delay before showing result
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             showResult = true
             
             if animal == round.correctAnimal {
-                // Stop the sound when correct
+                // Stop the sound and play success haptic
                 soundPlayer.stop()
+                HapticManager.shared.playCorrectAnswerHaptic()
             } else {
+                // Play wrong answer haptic
+                HapticManager.shared.playWrongAnswerHaptic()
+                
                 // If wrong, reset after a moment
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                     withAnimation {
@@ -921,7 +931,7 @@ struct SoundOptionCard: View {
         } else {
             // Clear history when starting fresh
             spectrogramHistory = []
-            optionSoundPlayer.play(soundFile: animal.soundFile)
+            optionSoundPlayer.play(soundFile: animal.soundFile, animalId: animal.id)
         }
     }
     
@@ -1035,6 +1045,7 @@ final class OptionSoundPlayer: ObservableObject, @unchecked Sendable {
     private var playerNode: AVAudioPlayerNode?
     private var audioFile: AVAudioFile?
     private var currentSoundFile: String?
+    private var currentAnimalId: String?
     private var fftSetup: vDSP_DFT_Setup?
     
     private let fftSize = 1024
@@ -1056,9 +1067,10 @@ final class OptionSoundPlayer: ObservableObject, @unchecked Sendable {
         }
     }
     
-    func play(soundFile: String) {
+    func play(soundFile: String, animalId: String? = nil) {
         stop()
         currentSoundFile = soundFile
+        currentAnimalId = animalId
         
         // Try multiple locations for the sound file
         var url: URL?
@@ -1120,6 +1132,9 @@ final class OptionSoundPlayer: ObservableObject, @unchecked Sendable {
             playerNode = player
             state = .playing
             
+            // Start continuous haptic feedback synchronized with audio
+            HapticManager.shared.startContinuousHaptic()
+            
         } catch {
             print("OptionSoundPlayer: Failed to play sound - \(error)")
         }
@@ -1144,6 +1159,9 @@ final class OptionSoundPlayer: ObservableObject, @unchecked Sendable {
             engine.mainMixerNode.removeTap(onBus: 0)
             engine.stop()
         }
+        
+        // Stop haptic feedback
+        HapticManager.shared.stopContinuousHaptic()
         
         audioEngine = nil
         playerNode = nil
@@ -1195,6 +1213,9 @@ final class OptionSoundPlayer: ObservableObject, @unchecked Sendable {
             var scale = 1.0 / maxMagnitude
             vDSP_vsmul(bandMagnitudes, 1, &scale, &bandMagnitudes, 1, vDSP_Length(outputBands))
         }
+        
+        // Feed frequency data to haptic manager for real-time audio-reactive haptics
+        HapticManager.shared.updateWithFrequencyData(bandMagnitudes)
         
         DispatchQueue.main.async { [weak self] in
             self?.frequencyMagnitudes = bandMagnitudes
@@ -1299,6 +1320,8 @@ struct CorrectAnswerOverlay: View {
             withAnimation(.easeOut(duration: 0.5)) {
                 isVisible = true
             }
+            // Play celebratory haptic when badge is earned
+            HapticManager.shared.playBadgeEarnedHaptic()
         }
     }
 }
