@@ -19,6 +19,7 @@ struct RoundView: View {
     
     @State private var selectedAnswer: Animal?
     @State private var showResult = false
+    @State private var wrongAnswers: Set<String> = []  // Track eliminated options
     @State private var hintsRevealed = 0
     @State private var isVisible = false
     @State private var spectrogramHistory: [[Float]] = []
@@ -50,7 +51,12 @@ struct RoundView: View {
                         isRegularWidth: isRegularWidth
                     )
                     
-                    ChallengeBadge(type: round.challengeType, isRegularWidth: isRegularWidth)
+                    // Challenge instruction (without badge)
+                    Text(round.challengeType.instruction)
+                        .font(.pantanalBody(isRegularWidth ? 17 : 15))
+                        .foregroundStyle(Color.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.top, isRegularWidth ? 8 : 4)
                     
                     if isImageToSoundChallenge {
                         // For Image → Sound: Show animal image without name
@@ -66,6 +72,7 @@ struct RoundView: View {
                             correctAnimal: round.correctAnimal,
                             selectedAnswer: selectedAnswer,
                             showResult: showResult,
+                            wrongAnswers: wrongAnswers,
                             onSelect: handleAnswerSelection,
                             isRegularWidth: isRegularWidth
                         )
@@ -86,6 +93,7 @@ struct RoundView: View {
                             selectedAnswer: selectedAnswer,
                             correctAnswer: round.correctAnimal,
                             showResult: showResult,
+                            wrongAnswers: wrongAnswers,
                             onSelect: handleAnswerSelection,
                             isRegularWidth: isRegularWidth
                         )
@@ -171,6 +179,9 @@ struct RoundView: View {
     
     private func handleAnswerSelection(_ animal: Animal) {
         guard !showResult else { return }
+        // Don't allow selecting already-eliminated options
+        guard !wrongAnswers.contains(animal.id) else { return }
+        
         selectedAnswer = animal
         
         // Haptic feedback for selection
@@ -185,11 +196,12 @@ struct RoundView: View {
                 soundPlayer.stop()
                 HapticManager.shared.playCorrectAnswerHaptic()
             } else {
-                // Play wrong answer haptic
+                // Play wrong answer haptic and mark as eliminated
                 HapticManager.shared.playWrongAnswerHaptic()
+                wrongAnswers.insert(animal.id)
                 
-                // If wrong, reset after a moment
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                // Reset selection state after a moment, but keep wrong answer marked
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                     withAnimation {
                         showResult = false
                         selectedAnswer = nil
@@ -376,6 +388,7 @@ struct RoundRecorderDevice: View {
     let onButtonTap: () -> Void
     var spectrogramHeight: CGFloat = 80
     var isRegularWidth: Bool = false
+    var highlightButton: Bool = false
     
     /// Status text based on playback state
     private var statusText: String {
@@ -452,7 +465,8 @@ struct RoundRecorderDevice: View {
                 GlassPlaybackButton(
                     state: playbackState,
                     onTap: onButtonTap,
-                    isRegularWidth: isRegularWidth
+                    isRegularWidth: isRegularWidth,
+                    isHighlighted: highlightButton
                 )
             }
             .padding(.horizontal, horizontalPadding)
@@ -489,6 +503,7 @@ struct GlassPlaybackButton: View {
     let state: SoundPlayer.PlaybackState
     let onTap: () -> Void
     var isRegularWidth: Bool = false
+    var isHighlighted: Bool = false
     
     // Off-white color for tinting the glass
     private let offWhite = Color(red: 245/255, green: 240/255, blue: 235/255)
@@ -513,18 +528,23 @@ struct GlassPlaybackButton: View {
                 .frame(width: buttonSize, height: buttonSize)
         }
         .buttonStyle(.plain)
-        .modifier(OffWhiteGlassModifier(tintColor: offWhite))
+        .modifier(OffWhiteGlassModifier(tintColor: offWhite, isHighlighted: isHighlighted))
     }
 }
 
 /// Applies off-white tinted Liquid Glass on iOS 26+, falls back to skeuomorphic style on older versions
 struct OffWhiteGlassModifier: ViewModifier {
     let tintColor: Color
+    var isHighlighted: Bool = false
     
     func body(content: Content) -> some View {
         if #available(iOS 26.0, *) {
             content
                 .glassEffect(.regular.tint(tintColor).interactive(), in: .circle)
+                .shadow(
+                    color: isHighlighted ? Color.pantanalGold.opacity(0.5) : .clear,
+                    radius: isHighlighted ? 12 : 0
+                )
         } else {
             // Fallback for iOS 16-25: off-white skeuomorphic circle button
             content
@@ -541,6 +561,10 @@ struct OffWhiteGlassModifier: ViewModifier {
                             )
                         )
                         .shadow(color: .black.opacity(0.3), radius: 3, y: 2)
+                        .shadow(
+                            color: isHighlighted ? Color.pantanalGold.opacity(0.5) : .clear,
+                            radius: isHighlighted ? 12 : 0
+                        )
                 )
         }
     }
@@ -625,6 +649,7 @@ struct AnswerOptionsView: View {
     let selectedAnswer: Animal?
     let correctAnswer: Animal
     let showResult: Bool
+    let wrongAnswers: Set<String>  // Eliminated options
     let onSelect: (Animal) -> Void
     var isRegularWidth: Bool = false
     
@@ -640,12 +665,17 @@ struct AnswerOptionsView: View {
     var body: some View {
         LazyVGrid(columns: columns, spacing: gridSpacing) {
             ForEach(options) { animal in
+                let isEliminated = wrongAnswers.contains(animal.id)
+                let isCurrentlyWrong = showResult && selectedAnswer?.id == animal.id && animal.id != correctAnswer.id
+                
                 AnswerOptionButton(
                     animal: animal,
                     displayMode: challengeType == .soundToImage ? .image : .name,
                     isSelected: selectedAnswer?.id == animal.id,
-                    isCorrect: showResult && animal.id == correctAnswer.id,
-                    isWrong: showResult && selectedAnswer?.id == animal.id && animal.id != correctAnswer.id,
+                    // Only show correct when the correct answer is selected
+                    isCorrect: showResult && selectedAnswer?.id == correctAnswer.id && animal.id == correctAnswer.id,
+                    isWrong: isCurrentlyWrong,
+                    isEliminated: isEliminated,
                     onTap: { onSelect(animal) },
                     isRegularWidth: isRegularWidth
                 )
@@ -661,6 +691,7 @@ struct AnswerOptionButton: View {
     let isSelected: Bool
     let isCorrect: Bool
     let isWrong: Bool
+    var isEliminated: Bool = false  // Previously wrong answer, now disabled
     let onTap: () -> Void
     var isRegularWidth: Bool = false
     
@@ -669,7 +700,7 @@ struct AnswerOptionButton: View {
         case image
     }
     
-    private var imageSize: CGFloat { isRegularWidth ? 52 : 44 }
+    private var imageSize: CGFloat { isRegularWidth ? 80 : 64 }
     private var nameSize: CGFloat { isRegularWidth ? 17 : 15 }
     private var captionSize: CGFloat { isRegularWidth ? 12 : 11 }
     private var monoSize: CGFloat { isRegularWidth ? 10 : 9 }
@@ -678,7 +709,7 @@ struct AnswerOptionButton: View {
     
     private var borderColor: Color {
         if isCorrect { return Color.pantanalLight }
-        if isWrong { return Color.specRed }
+        if isWrong || isEliminated { return Color.specRed.opacity(isEliminated ? 0.4 : 1.0) }
         if isSelected { return Color.pantanalGold }
         return Color.white.opacity(0.1)
     }
@@ -686,8 +717,13 @@ struct AnswerOptionButton: View {
     private var backgroundColor: Color {
         if isCorrect { return Color.pantanalLight.opacity(0.15) }
         if isWrong { return Color.specRed.opacity(0.1) }
+        if isEliminated { return Color.specRed.opacity(0.05) }
         if isSelected { return Color.pantanalGold.opacity(0.08) }
         return Color.white.opacity(0.03)
+    }
+    
+    private var contentOpacity: Double {
+        isEliminated ? 0.4 : 1.0
     }
     
     var body: some View {
@@ -699,20 +735,21 @@ struct AnswerOptionButton: View {
                             .resizable()
                             .scaledToFit()
                             .frame(width: imageSize, height: imageSize)
+                            .opacity(contentOpacity)
                     }
-                    
-                    Text(animal.name)
-                        .font(.pantanalCaption(captionSize))
-                        .foregroundStyle(Color.textSecondary)
+                    // No name label - user must guess from image alone
                 } else {
                     Text(animal.name)
                         .font(.pantanalUI(nameSize))
                         .foregroundStyle(Color.textPrimary)
-                    
-                    Text(animal.scientificName)
-                        .font(.pantanalMono(monoSize))
-                        .foregroundStyle(Color.textMuted)
-                        .italic()
+                        .opacity(contentOpacity)
+                }
+                
+                // Show "X" indicator for eliminated options
+                if isEliminated && !isWrong {
+                    Image(systemName: "xmark")
+                        .font(.system(size: isRegularWidth ? 12 : 10, weight: .bold))
+                        .foregroundStyle(Color.specRed.opacity(0.5))
                 }
             }
             .frame(maxWidth: .infinity)
@@ -725,9 +762,11 @@ struct AnswerOptionButton: View {
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
         }
         .buttonStyle(.plain)
+        .disabled(isEliminated)
         .animation(.easeOut(duration: 0.2), value: isSelected)
         .animation(.easeOut(duration: 0.2), value: isCorrect)
         .animation(.easeOut(duration: 0.2), value: isWrong)
+        .animation(.easeOut(duration: 0.2), value: isEliminated)
     }
 }
 
@@ -740,6 +779,7 @@ struct SoundOptionsView: View {
     let correctAnimal: Animal
     let selectedAnswer: Animal?
     let showResult: Bool
+    let wrongAnswers: Set<String>  // Eliminated options
     let onSelect: (Animal) -> Void
     var isRegularWidth: Bool = false
     
@@ -755,11 +795,16 @@ struct SoundOptionsView: View {
     var body: some View {
         LazyVGrid(columns: columns, spacing: gridSpacing) {
             ForEach(options) { animal in
+                let isEliminated = wrongAnswers.contains(animal.id)
+                let isCurrentlyWrong = showResult && selectedAnswer?.id == animal.id && animal.id != correctAnimal.id
+                
                 SoundOptionCard(
                     animal: animal,
                     isSelected: selectedAnswer?.id == animal.id,
-                    isCorrect: showResult && animal.id == correctAnimal.id,
-                    isWrong: showResult && selectedAnswer?.id == animal.id && animal.id != correctAnimal.id,
+                    // Only show correct when the correct answer is selected
+                    isCorrect: showResult && selectedAnswer?.id == correctAnimal.id && animal.id == correctAnimal.id,
+                    isWrong: isCurrentlyWrong,
+                    isEliminated: isEliminated,
                     onSelect: { onSelect(animal) },
                     isRegularWidth: isRegularWidth
                 )
@@ -769,27 +814,30 @@ struct SoundOptionsView: View {
 }
 
 /// Individual sound option card with playable spectrogram (similar to RoundRecorderDevice)
+/// Separates play (preview) and select (answer) actions for better UX
 struct SoundOptionCard: View {
     let animal: Animal
     let isSelected: Bool
     let isCorrect: Bool
     let isWrong: Bool
+    var isEliminated: Bool = false  // Previously wrong answer, now disabled
     let onSelect: () -> Void
     var isRegularWidth: Bool = false
     
     @StateObject private var optionSoundPlayer = OptionSoundPlayer()
     @State private var spectrogramHistory: [[Float]] = []
     
-    private var spectrogramHeight: CGFloat { isRegularWidth ? 80 : 64 }
+    private var spectrogramHeight: CGFloat { isRegularWidth ? 70 : 56 }
     private var cornerRadius: CGFloat { isRegularWidth ? 14 : 12 }
-    private var buttonSize: CGFloat { isRegularWidth ? 40 : 34 }
-    private var iconSize: CGFloat { isRegularWidth ? 16 : 14 }
+    private var buttonSize: CGFloat { isRegularWidth ? 36 : 30 }
+    private var iconSize: CGFloat { isRegularWidth ? 14 : 12 }
     private var statusFontSize: CGFloat { isRegularWidth ? 9 : 7 }
-    private var vuBarSize: CGFloat { isRegularWidth ? 8 : 6 }
+    private var vuBarSize: CGFloat { isRegularWidth ? 7 : 5 }
+    private var selectButtonFontSize: CGFloat { isRegularWidth ? 13 : 11 }
     
     private var borderColor: Color {
         if isCorrect { return Color.pantanalLight }
-        if isWrong { return Color.specRed }
+        if isWrong || isEliminated { return Color.specRed.opacity(isEliminated ? 0.4 : 1.0) }
         if isSelected { return Color.pantanalGold }
         return Color.white.opacity(0.1)
     }
@@ -798,12 +846,16 @@ struct SoundOptionCard: View {
         isSelected || isCorrect || isWrong ? 2 : 1
     }
     
+    private var contentOpacity: Double {
+        isEliminated ? 0.4 : 1.0
+    }
+    
     /// Status text based on playback state
     private var statusText: String {
         switch optionSoundPlayer.state {
         case .playing: return "PLAYING"
         case .paused: return "PAUSED"
-        case .ended: return "TAP TO PLAY"
+        case .ended: return "TAP ▶ TO PLAY"
         }
     }
     
@@ -825,86 +877,119 @@ struct SoundOptionCard: View {
     private let offWhite = Color(red: 245/255, green: 240/255, blue: 235/255)
     
     var body: some View {
-        Button(action: onSelect) {
-            VStack(spacing: 0) {
-                // Header with status indicator
-                HStack(spacing: 4) {
-                    Circle()
-                        .fill(statusColor)
-                        .frame(width: isRegularWidth ? 6 : 5, height: isRegularWidth ? 6 : 5)
-                    
-                    Text(statusText)
-                        .font(.pantanalMono(statusFontSize))
-                        .foregroundStyle(Color.textMuted)
-                    
-                    Spacer()
-                    
-                    // Status indicator for correct/wrong
-                    if isCorrect {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(Color.pantanalLight)
-                            .font(.system(size: iconSize))
-                    } else if isWrong {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(Color.specRed)
-                            .font(.system(size: iconSize))
-                    }
-                }
-                .padding(.horizontal, isRegularWidth ? 12 : 10)
-                .padding(.top, isRegularWidth ? 10 : 8)
-                .padding(.bottom, isRegularWidth ? 6 : 4)
+        VStack(spacing: 0) {
+            // Header with status indicator
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(statusColor)
+                    .frame(width: isRegularWidth ? 6 : 5, height: isRegularWidth ? 6 : 5)
                 
-                // Spectrogram display
-                ZStack {
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(Color(red: 10/255, green: 13/255, blue: 11/255))
-                    
-                    BrightSpectrogramCanvas(history: spectrogramHistory)
-                        .clipShape(RoundedRectangle(cornerRadius: 4))
-                        .padding(2)
-                }
-                .frame(height: spectrogramHeight)
-                .padding(.horizontal, isRegularWidth ? 10 : 8)
-                .padding(.bottom, isRegularWidth ? 8 : 6)
+                Text(statusText)
+                    .font(.pantanalMono(statusFontSize))
+                    .foregroundStyle(Color.textMuted)
                 
-                // Controls row: VU meter + Play button
-                HStack(spacing: isRegularWidth ? 10 : 8) {
-                    // Mini VU meter
-                    HStack(spacing: 2) {
-                        ForEach(0..<8, id: \.self) { index in
-                            let level = averageLevel * 3.0
-                            let isActive = index < Int(level * 8)
-                            
-                            RoundedRectangle(cornerRadius: 1)
-                                .fill(vuBarColor(for: index, isActive: isActive))
-                                .frame(width: vuBarSize, height: vuBarSize)
-                        }
-                    }
-                    
-                    Spacer()
-                    
-                    // Play/Pause button with Liquid Glass style
-                    Button(action: togglePlayback) {
-                        Image(systemName: playbackIcon)
-                            .font(.system(size: iconSize, weight: .semibold))
-                            .foregroundStyle(Color.pantanalDeep)
-                            .frame(width: buttonSize, height: buttonSize)
-                    }
-                    .buttonStyle(.plain)
-                    .modifier(OffWhiteGlassModifier(tintColor: offWhite))
+                Spacer()
+                
+                // Status indicator for correct/wrong
+                if isCorrect {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(Color.pantanalLight)
+                        .font(.system(size: iconSize))
+                } else if isWrong {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(Color.specRed)
+                        .font(.system(size: iconSize))
                 }
-                .padding(.horizontal, isRegularWidth ? 10 : 8)
-                .padding(.bottom, isRegularWidth ? 10 : 8)
             }
-            .background(Color(red: 26/255, green: 29/255, blue: 27/255))
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .strokeBorder(borderColor, lineWidth: borderWidth)
-            )
+            .padding(.horizontal, isRegularWidth ? 12 : 10)
+            .padding(.top, isRegularWidth ? 10 : 8)
+            .padding(.bottom, isRegularWidth ? 6 : 4)
+            
+            // Spectrogram display
+            ZStack {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color(red: 10/255, green: 13/255, blue: 11/255))
+                
+                BrightSpectrogramCanvas(history: spectrogramHistory)
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                    .padding(2)
+            }
+            .frame(height: spectrogramHeight)
+            .padding(.horizontal, isRegularWidth ? 10 : 8)
+            .padding(.bottom, isRegularWidth ? 6 : 4)
+            .opacity(contentOpacity)
+            
+            // Controls row: VU meter + Play button
+            HStack(spacing: isRegularWidth ? 8 : 6) {
+                // Mini VU meter
+                HStack(spacing: 2) {
+                    ForEach(0..<8, id: \.self) { index in
+                        let level = averageLevel * 3.0
+                        let isActive = index < Int(level * 8)
+                        
+                        RoundedRectangle(cornerRadius: 1)
+                            .fill(vuBarColor(for: index, isActive: isActive))
+                            .frame(width: vuBarSize, height: vuBarSize)
+                    }
+                }
+                
+                Spacer()
+                
+                // Play/Pause button with Liquid Glass style
+                Button(action: togglePlayback) {
+                    Image(systemName: playbackIcon)
+                        .font(.system(size: iconSize, weight: .semibold))
+                        .foregroundStyle(Color.pantanalDeep)
+                        .frame(width: buttonSize, height: buttonSize)
+                }
+                .buttonStyle(.plain)
+                .modifier(OffWhiteGlassModifier(tintColor: offWhite))
+            }
+            .padding(.horizontal, isRegularWidth ? 10 : 8)
+            .padding(.bottom, isRegularWidth ? 8 : 6)
+            
+            // Explicit "Select" button at the bottom (or "Eliminated" label)
+            if isEliminated {
+                // Show eliminated state
+                HStack(spacing: isRegularWidth ? 6 : 4) {
+                    Image(systemName: "xmark.circle")
+                        .font(.system(size: selectButtonFontSize, weight: .medium))
+                    Text("Incorrect")
+                        .font(.pantanalUI(selectButtonFontSize))
+                        .fontWeight(.medium)
+                }
+                .foregroundStyle(Color.specRed.opacity(0.5))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, isRegularWidth ? 10 : 8)
+                .background(Color.specRed.opacity(0.05))
+            } else {
+                Button(action: onSelect) {
+                    HStack(spacing: isRegularWidth ? 6 : 4) {
+                        Image(systemName: "checkmark.circle")
+                            .font(.system(size: selectButtonFontSize, weight: .medium))
+                        Text("Select")
+                            .font(.pantanalUI(selectButtonFontSize))
+                            .fontWeight(.medium)
+                    }
+                    .foregroundStyle(isCorrect ? Color.pantanalLight : isWrong ? Color.specRed : Color.pantanalGold)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, isRegularWidth ? 10 : 8)
+                    .background(
+                        isCorrect ? Color.pantanalLight.opacity(0.12) :
+                        isWrong ? Color.specRed.opacity(0.08) :
+                        Color.pantanalGold.opacity(0.08)
+                    )
+                }
+                .buttonStyle(.plain)
+                .disabled(isCorrect || isWrong)
+            }
         }
-        .buttonStyle(.plain)
-        .disabled(isCorrect || isWrong)
+        .background(Color(red: 26/255, green: 29/255, blue: 27/255))
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+        .overlay(
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .strokeBorder(borderColor, lineWidth: borderWidth)
+        )
         .onReceive(optionSoundPlayer.$frequencyMagnitudes) { newValue in
             if optionSoundPlayer.isPlaying {
                 updateSpectrogramHistory(newValue)
@@ -1328,7 +1413,7 @@ struct CorrectAnswerOverlay: View {
 
 #Preview {
     RoundView(
-        round: GameRound.allRounds[0],
+        round: GameRound.allRounds[1],
         completedRounds: [],
         onCorrectAnswer: {}
     )

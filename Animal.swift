@@ -46,11 +46,11 @@ extension Animal {
         imageName: "harpy",
         soundFile: "harpia",
         direction: .up,
-        conservationFact: "The Harpy Eagle is the largest raptor in the Americas. Its powerful talons can exert over 500 PSI of pressure — stronger than a wolf's bite.",
+        conservationFact: "The Harpy Eagle needs trees over 40 meters tall to nest. When old-growth forest disappears, so does it.",
         hints: [
-            "This bird hunts from the canopy, soaring above the trees.",
-            "Its call is a series of sharp, piercing whistles.",
-            "Named after the harpies of Greek mythology."
+            "Listen closely. The sound is coming from above.",
+            "A bird with claws stronger than any other. It lives in the tallest trees.",
+            "The biggest eagle in the Americas."
         ]
     )
     
@@ -61,11 +61,11 @@ extension Animal {
         imageName: "macaw",
         soundFile: "arara-vermelha",
         direction: .left,
-        conservationFact: "The Scarlet Macaw can live up to 75 years in the wild. Their powerful beaks can crack Brazil nuts — one of the hardest nuts in the world.",
+        conservationFact: "Scarlet Macaws mate for life. A pair can stay together for decades, returning to the same nesting tree every year.",
         hints: [
-            "This bird is famous for its vibrant red, yellow and blue plumage.",
-            "It lives in pairs or small flocks in the forest canopy.",
-            "One of the most colorful birds in the Americas."
+            "One of the loudest birds in the forest.",
+            "Its beak is strong enough to crack a Brazil nut.",
+            "A large parrot that can live up to 75 years."
         ]
     )
     
@@ -76,10 +76,10 @@ extension Animal {
         imageName: "jaburu",
         soundFile: "tuiuiu",
         direction: .down,
-        conservationFact: "The Jabiru is the tallest flying bird in South America, standing up to 1.5 meters. It's the symbol of the Pantanal and builds nests that can weigh 500 kg.",
+        conservationFact: "The Jabiru builds nests so heavy they can weigh 500 kg. The same nest is used for generations.",
         hints: [
             "This bird is the symbol of the Pantanal wetlands.",
-            "It makes rhythmic clacking sounds with its bill.",
+            "It doesn't sing. It claps its beak.",
             "One of the tallest flying birds in the Americas."
         ]
     )
@@ -91,11 +91,11 @@ extension Animal {
         imageName: "jaguar",
         soundFile: "onca-pintada",
         direction: .right,
-        conservationFact: "The Jaguar has the strongest bite of all big cats. Unlike other cats, it kills prey by piercing the skull with its canines. The Pantanal hosts the densest jaguar population on Earth.",
+        conservationFact: "The Pantanal is home to the largest jaguar population on Earth. As the wetlands shrink, their last great refuge disappears.",
         hints: [
-            "The largest cat in the Americas.",
-            "Its call is a deep, resonant growl.",
-            "An apex predator that even hunts caimans."
+            "You feel this sound before you hear it.",
+            "The biggest cat in the Americas.",
+            "It hunts caimans in the river."
         ]
     )
     
@@ -135,7 +135,7 @@ extension Animal {
         id: "toucan",
         name: "Toco Toucan",
         scientificName: "Ramphastos toco",
-        imageName: nil,
+        imageName: "tucan",
         soundFile: "",
         direction: .up,
         conservationFact: "",
@@ -193,6 +193,61 @@ extension Animal {
         imageName: nil,
         soundFile: "",
         direction: .down,
+        conservationFact: "",
+        hints: []
+    )
+    
+    static let owl = Animal(
+        id: "owl",
+        name: "Owl",
+        scientificName: "Strigidae",
+        imageName: "owl",
+        soundFile: "",
+        direction: .up,
+        conservationFact: "",
+        hints: []
+    )
+    
+    static let parakeet = Animal(
+        id: "parakeet",
+        name: "Parakeet",
+        scientificName: "Psittacidae",
+        imageName: "parakeet",
+        soundFile: "",
+        direction: .left,
+        conservationFact: "",
+        hints: []
+    )
+    
+    static let parrot = Animal(
+        id: "parrot",
+        name: "Parrot",
+        scientificName: "Amazona aestiva",
+        imageName: nil,
+        soundFile: "",
+        direction: .left,
+        conservationFact: "",
+        hints: []
+    )
+    
+    static let manedWolf = Animal(
+        id: "maned_wolf",
+        name: "Maned Wolf",
+        scientificName: "Chrysocyon brachyurus",
+        imageName: nil,
+        soundFile: "",
+        direction: .right,
+        conservationFact: "",
+        hints: []
+    )
+    
+    static let howlerMonkey = Animal(
+        id: "howler_monkey",
+        name: "Howler Monkey",
+        scientificName: "Alouatta caraya",
+        imageName: nil,
+        soundFile: "",
+        direction: .left,
         conservationFact: "",
         hints: []
     )

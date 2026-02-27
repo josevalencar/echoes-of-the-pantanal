@@ -29,6 +29,13 @@ final class SoundPlayer: ObservableObject, @unchecked Sendable {
     var isPaused: Bool { state == .paused }
     var hasEnded: Bool { state == .ended }
     
+    /// Reset state to paused (shows play button)
+    func reset() {
+        stop()
+        state = .paused
+        frequencyMagnitudes = Array(repeating: 0, count: 64)
+    }
+    
     private var audioEngine: AVAudioEngine?
     private var playerNode: AVAudioPlayerNode?
     private var audioFile: AVAudioFile?

@@ -107,14 +107,14 @@ struct EnteringPhaseView: View {
                 .frame(width: 220, height: 220)
             
             VStack(spacing: 16) {
-                Text("You are entering the Pantanal of Mato Grosso do Sul, Brazil.")
+                Text("You are entering the Pantanal, in Mato Grosso do Sul, Brazil.")
                     .font(.pantanalSubheading(18))
                     .italic()
                     .foregroundStyle(Color.textSecondary)
                     .multilineTextAlignment(.center)
                     .lineSpacing(6)
                 
-                Text("Every sound tells a story.")
+                Text("Every sound here is alive.")
                     .font(.pantanalSubheading(18))
                     .italic()
                     .foregroundStyle(Color.textSecondary)

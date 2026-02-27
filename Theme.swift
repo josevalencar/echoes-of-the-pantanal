@@ -10,9 +10,10 @@
 import SwiftUI
 
 extension Color {
-    static let pantanalDeep = Color(red: 13/255, green: 26/255, blue: 20/255)
-    static let pantanalDark = Color(red: 21/255, green: 46/255, blue: 32/255)
-    static let pantanalMid = Color(red: 30/255, green: 80/255, blue: 56/255)
+    // Slightly brighter base colors for better readability while keeping the forest atmosphere
+    static let pantanalDeep = Color(red: 18/255, green: 36/255, blue: 28/255)
+    static let pantanalDark = Color(red: 28/255, green: 58/255, blue: 42/255)
+    static let pantanalMid = Color(red: 38/255, green: 92/255, blue: 66/255)
     static let pantanalWater = Color(red: 26/255, green: 122/255, blue: 90/255)
     static let pantanalLight = Color(red: 58/255, green: 173/255, blue: 114/255)
     static let pantanalBright = Color(red: 92/255, green: 200/255, blue: 138/255)

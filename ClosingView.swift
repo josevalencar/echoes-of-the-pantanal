@@ -38,10 +38,6 @@ struct ClosingView: View {
                         .opacity(isVisible ? 1 : 0)
                         .offset(y: isVisible ? 0 : 15)
                     
-                    quoteSection
-                        .opacity(quoteVisible ? 1 : 0)
-                        .offset(y: quoteVisible ? 0 : 10)
-                    
                     creditsSection
                         .opacity(quoteVisible ? 1 : 0)
                 }
@@ -141,7 +137,7 @@ struct ClosingView: View {
     
     private var conservationMessage: some View {
         VStack(spacing: 16) {
-            Text("The Pantanal is the world's largest tropical wetland — home to extraordinary biodiversity.")
+            Text("Every sound you recognized is a life that depends on this place. The Pantanal is the world's largest tropical wetland.")
                 .font(.pantanalBody(15))
                 .foregroundStyle(Color.textSecondary)
                 .multilineTextAlignment(.center)
@@ -149,11 +145,11 @@ struct ClosingView: View {
             
             HStack(spacing: 20) {
                 BiodiversityStat(number: "2,000+", label: "Plant species")
-                BiodiversityStat(number: "580", label: "Bird species")
-                BiodiversityStat(number: "270", label: "Fish species")
+                BiodiversityStat(number: "580", label: "Birds")
+                BiodiversityStat(number: "270", label: "Fish")
             }
             
-            Text("But deforestation, wildfires, and human noise pollution threaten this acoustic paradise. Each year, thousands of hectares are lost — and with them, the voices of countless species.")
+            Text("But it's getting quieter. These sounds keep ecosystems in balance. Lose them, and the world loses more than it can hear.")
                 .font(.pantanalSmall(13))
                 .foregroundStyle(Color.textMuted)
                 .multilineTextAlignment(.center)
@@ -191,20 +187,9 @@ struct ClosingView: View {
                 .background(Color.white.opacity(0.08))
                 .padding(.horizontal, 40)
             
-            VStack(spacing: 6) {
-                Text("Echoes of the Pantanal")
-                    .font(.pantanalUI(13))
-                    .foregroundStyle(Color.textSecondary)
-                
-                Text("SAUÁ ENVIRONMENTAL CONSULTING")
-                    .font(.pantanalLabel(9))
-                    .foregroundStyle(Color.textMuted)
-                    .tracking(2)
-            }
-            
-            Text("Swift Student Challenge 2026")
-                .font(.pantanalMono(9))
-                .foregroundStyle(Color.textMuted.opacity(0.6))
+            Text("Echoes of the Pantanal")
+                .font(.pantanalUI(13))
+                .foregroundStyle(Color.textSecondary)
         }
         .padding(.top, 12)
     }

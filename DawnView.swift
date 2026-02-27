@@ -149,13 +149,13 @@ struct DawnSkyGradient: View {
 struct DawnSunGlow: View {
     var body: some View {
         ZStack {
-            // Large outer glow
+            // Large outer glow (reduced opacity)
             Circle()
                 .fill(
                     RadialGradient(
                         colors: [
-                            Color(hex: "f0e6a0").opacity(0.28),
-                            Color(hex: "f0dc8c").opacity(0.12),
+                            Color(hex: "f0e6a0").opacity(0.15),
+                            Color(hex: "f0dc8c").opacity(0.06),
                             Color.clear
                         ],
                         center: .center,
@@ -165,13 +165,13 @@ struct DawnSunGlow: View {
                 )
                 .frame(width: 320, height: 320)
             
-            // Bright middle glow
+            // Bright middle glow (reduced opacity)
             Circle()
                 .fill(
                     RadialGradient(
                         colors: [
-                            Color(hex: "fff5b4").opacity(0.32),
-                            Color(hex: "f0dc8c").opacity(0.15),
+                            Color(hex: "fff5b4").opacity(0.18),
+                            Color(hex: "f0dc8c").opacity(0.08),
                             Color.clear
                         ],
                         center: .center,
@@ -181,13 +181,13 @@ struct DawnSunGlow: View {
                 )
                 .frame(width: 200, height: 200)
             
-            // Inner golden core
+            // Inner golden core (reduced opacity)
             Circle()
                 .fill(
                     RadialGradient(
                         colors: [
-                            Color(hex: "ffffd8").opacity(0.35),
-                            Color(hex: "fff5b4").opacity(0.18),
+                            Color(hex: "ffffd8").opacity(0.20),
+                            Color(hex: "fff5b4").opacity(0.10),
                             Color.clear
                         ],
                         center: .center,
@@ -1149,10 +1149,9 @@ struct DawnTitleGroup: View {
                 .foregroundStyle(Color.textPrimary)
                 .multilineTextAlignment(.center)
                 .lineSpacing(2)
-                .shadow(color: .black.opacity(0.6), radius: 30, y: 2)
-                .shadow(color: Color(hex: "0e2a28").opacity(0.9), radius: 80)
+                .shadow(color: .black.opacity(0.5), radius: 4, y: 2)
             
-            Text("LISTEN TO NATURE")
+            Text("A BIOACOUSTICS EXPERIENCE")
                 .font(.pantanalLabel(11))
                 .foregroundStyle(Color.pantanalGold.opacity(0.7))
                 .tracking(5)

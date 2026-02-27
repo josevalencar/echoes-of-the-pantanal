@@ -96,8 +96,8 @@ struct MicrophonePermissionCard: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     
     private var isRegularWidth: Bool { horizontalSizeClass == .regular }
-    private var maxContentWidth: CGFloat { isRegularWidth ? 520 : 420 }
-    private var horizontalPadding: CGFloat { isRegularWidth ? 40 : 50 }
+    private var maxContentWidth: CGFloat { isRegularWidth ? 520 : .infinity }
+    private var horizontalPadding: CGFloat { isRegularWidth ? 40 : 32 }
     private var verticalSpacing: CGFloat { isRegularWidth ? 32 : 24 }
     private var headingSize: CGFloat { isRegularWidth ? 34 : 28 }
     private var bodySize: CGFloat { isRegularWidth ? 17 : 15 }  // HIG: 17pt body text
@@ -112,8 +112,10 @@ struct MicrophonePermissionCard: View {
                 .font(.pantanalHeading(headingSize))
                 .foregroundStyle(Color.textPrimary)
                 .multilineTextAlignment(.center)
+                .minimumScaleFactor(0.8)
+                .lineLimit(2)
             
-            Text("Echoes of the Pantanal uses your microphone to analyze environmental sounds in real time and create live spectrograms of your surroundings.")
+            Text("Your microphone lets the app capture sounds around you and turn them into live spectrograms.")
                 .font(.pantanalSmall(bodySize))
                 .foregroundStyle(Color.textSecondary)
                 .multilineTextAlignment(.center)
@@ -162,8 +164,8 @@ struct HeadphonesRecommendationCard: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     
     private var isRegularWidth: Bool { horizontalSizeClass == .regular }
-    private var maxContentWidth: CGFloat { isRegularWidth ? 520 : 420 }
-    private var horizontalPadding: CGFloat { isRegularWidth ? 40 : 50 }
+    private var maxContentWidth: CGFloat { isRegularWidth ? 520 : .infinity }
+    private var horizontalPadding: CGFloat { isRegularWidth ? 40 : 32 }
     private var verticalSpacing: CGFloat { isRegularWidth ? 32 : 24 }
     private var headingSize: CGFloat { isRegularWidth ? 34 : 28 }
     private var bodySize: CGFloat { isRegularWidth ? 17 : 15 }  // HIG: 17pt body text
@@ -179,9 +181,10 @@ struct HeadphonesRecommendationCard: View {
                 .font(.pantanalHeading(headingSize))
                 .foregroundStyle(Color.textPrimary)
                 .multilineTextAlignment(.center)
+                .minimumScaleFactor(0.8)
                 .lineSpacing(isRegularWidth ? 6 : 4)
             
-            Text("This is an immersive bioacoustics experience. Headphones will help you perceive spatial direction, subtle frequencies, and feel the sounds of the Pantanal as researchers do in the field.")
+            Text("You'll hear sounds coming from different directions. Headphones make that possible.")
                 .font(.pantanalSmall(bodySize))
                 .foregroundStyle(Color.textSecondary)
                 .multilineTextAlignment(.center)

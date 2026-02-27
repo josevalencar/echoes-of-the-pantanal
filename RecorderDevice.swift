@@ -2,16 +2,61 @@
 //  RecorderDevice.swift
 //  Echoes Of The Pantanal
 //
-//  Created by José Vitor Alencar on 16/02/26.
+//  Created by José Vitor Alencar on 25/02/26.
 //
 
 // Skeuomorphic field recorder device with spectrogram display, VU meters, and control knobs.
+// Supports both microphone input and external audio data for unified usage across scenes.
 
 import SwiftUI
+import Combine
+
+// MARK: - Audio Source
+
+/// Defines the audio source for the recorder device.
+enum RecorderAudioSource {
+    /// Uses live microphone input (default behavior).
+    case microphone
+    /// Uses externally provided audio data (for file playback integration).
+    case external
+    /// No audio - static display.
+    case none
+}
+
+// MARK: - RecorderDevice
 
 struct RecorderDevice: View {
-    var useLiveMicrophone: Bool = true
-
+    // MARK: Configuration
+    
+    /// The audio source to use.
+    var audioSource: RecorderAudioSource = .microphone
+    
+    /// External spectrogram history (used when audioSource is .external).
+    var externalSpectrogramHistory: [[Float]] = []
+    
+    /// External frequency magnitudes (used when audioSource is .external).
+    var externalFrequencyMagnitudes: [Float] = []
+    
+    /// Whether to highlight the play button (for onboarding).
+    var highlightPlayButton: Bool = false
+    
+    /// Whether to highlight the spectrogram area (for onboarding).
+    var highlightSpectrogram: Bool = false
+    
+    /// Custom status text override.
+    var statusText: String? = nil
+    
+    /// Custom label text (right side of header).
+    var labelText: String? = nil
+    
+    /// Whether the device is in playing state (for external control).
+    var isPlaying: Bool = false
+    
+    /// Callback when play button is tapped.
+    var onPlayTap: (() -> Void)? = nil
+    
+    // MARK: Internal State
+    
     @State private var isRecording = false
     @State private var elapsedTime: TimeInterval = 0
     @State private var timer: Timer?
@@ -20,20 +65,57 @@ struct RecorderDevice: View {
 
     private let historyColumns = 60
     private let audioManager = AudioManager.shared
+    
+    // MARK: Computed Properties
+    
+    private var effectiveSpectrogramHistory: [[Float]] {
+        audioSource == .external ? externalSpectrogramHistory : spectrogramHistory
+    }
+    
+    private var effectiveFrequencyMagnitudes: [Float] {
+        audioSource == .external ? externalFrequencyMagnitudes : frequencyMagnitudes
+    }
+    
+    private var effectiveIsActive: Bool {
+        audioSource == .external ? isPlaying : isRecording
+    }
+    
+    private var effectiveStatusText: String {
+        if let custom = statusText {
+            return custom
+        }
+        switch audioSource {
+        case .microphone:
+            return isRecording ? "RECORDING" : "PAUSED"
+        case .external:
+            return isPlaying ? "PLAYING" : "READY"
+        case .none:
+            return "READY"
+        }
+    }
 
+    // MARK: Body
+    
     var body: some View {
         VStack(spacing: 0) {
-            RecorderHeader(timestamp: formattedTime, isRecording: isRecording)
+            RecorderHeader(
+                timestamp: formattedTime,
+                isRecording: effectiveIsActive,
+                statusText: effectiveStatusText,
+                labelText: labelText
+            )
 
             LiveSpectrogramDisplay(
-                history: spectrogramHistory,
-                isRecording: isRecording,
-                onToggle: toggleRecording
+                history: effectiveSpectrogramHistory,
+                isRecording: effectiveIsActive,
+                onToggle: handleToggle,
+                highlightPlayButton: highlightPlayButton,
+                highlightSpectrogram: highlightSpectrogram
             )
 
             TimeMarkersRow()
 
-            LiveVUMeterRow(magnitudes: frequencyMagnitudes)
+            LiveVUMeterRow(magnitudes: effectiveFrequencyMagnitudes)
 
             KnobsRow()
 
@@ -49,14 +131,17 @@ struct RecorderDevice: View {
         )
         .shadow(color: .black.opacity(0.4), radius: 30, y: 20)
         .task {
-            if useLiveMicrophone {
+            if audioSource == .microphone {
                 startRecording()
             }
         }
         .onDisappear {
-            stopRecording()
+            if audioSource == .microphone {
+                stopRecording()
+            }
         }
         .onReceive(audioManager.$frequencyMagnitudes) { newValue in
+            guard audioSource == .microphone else { return }
             frequencyMagnitudes = newValue
             updateSpectrogramHistory(newValue)
         }
@@ -67,6 +152,14 @@ struct RecorderDevice: View {
         let seconds = Int(elapsedTime) % 60
         let hundredths = Int((elapsedTime.truncatingRemainder(dividingBy: 1)) * 100)
         return String(format: "%02d:%02d:%02d", minutes, seconds, hundredths)
+    }
+    
+    private func handleToggle() {
+        if let onPlayTap {
+            onPlayTap()
+        } else if audioSource == .microphone {
+            toggleRecording()
+        }
     }
 
     private func toggleRecording() {
@@ -104,7 +197,14 @@ struct RecorderDevice: View {
 struct RecorderHeader: View {
     let timestamp: String
     var isRecording: Bool = true
+    var statusText: String? = nil
+    var labelText: String? = nil
+    
     @State private var isBlinking = false
+    
+    private var displayStatusText: String {
+        statusText ?? (isRecording ? "RECORDING" : "PAUSED")
+    }
 
     var body: some View {
         HStack {
@@ -115,18 +215,24 @@ struct RecorderHeader: View {
                     .shadow(color: isRecording ? Color.specRed.opacity(0.5) : .clear, radius: 4)
                     .opacity(isRecording ? (isBlinking ? 0.3 : 1.0) : 0.5)
 
-                Text(isRecording ? "RECORDING" : "PAUSED")
+                Text(displayStatusText)
                     .font(.pantanalMono(9))
                     .foregroundStyle(Color.textMuted)
                     .tracking(2)
             }
 
             Spacer()
-
-            Text(timestamp)
-                .font(.pantanalMono(12))
-                .foregroundStyle(Color.pantanalGold)
-                .tracking(1)
+            
+            if let labelText {
+                Text(labelText)
+                    .font(.pantanalMono(9))
+                    .foregroundStyle(Color.textMuted)
+            } else {
+                Text(timestamp)
+                    .font(.pantanalMono(12))
+                    .foregroundStyle(Color.pantanalGold)
+                    .tracking(1)
+            }
         }
         .padding(.horizontal, 20)
         .padding(.top, 16)
@@ -143,6 +249,8 @@ struct LiveSpectrogramDisplay: View {
     let history: [[Float]]
     var isRecording: Bool
     var onToggle: (() -> Void)?
+    var highlightPlayButton: Bool = false
+    var highlightSpectrogram: Bool = false
 
     var body: some View {
         ZStack {
@@ -150,15 +258,22 @@ struct LiveSpectrogramDisplay: View {
                 .fill(Color(red: 10/255, green: 13/255, blue: 11/255))
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
-                        .strokeBorder(Color.white.opacity(0.04), lineWidth: 1)
+                        .strokeBorder(
+                            highlightSpectrogram ? Color.pantanalGold.opacity(0.3) : Color.white.opacity(0.04),
+                            lineWidth: highlightSpectrogram ? 2 : 1
+                        )
                 )
                 .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
+                .shadow(
+                    color: highlightSpectrogram ? Color.pantanalGold.opacity(0.08) : .clear,
+                    radius: 20
+                )
 
             LiveSpectrogramCanvas(history: history)
 
             FrequencyLabels()
 
-            PlayButton(isPlaying: isRecording, onTap: onToggle)
+            PlayButton(isPlaying: isRecording, onTap: onToggle, isHighlighted: highlightPlayButton)
         }
         .frame(height: 120)
         .padding(.horizontal, 16)
@@ -260,16 +375,27 @@ struct FrequencyLabels: View {
 struct PlayButton: View {
     var isPlaying: Bool
     var onTap: (() -> Void)?
+    var isHighlighted: Bool = false
+    
+    @State private var isPulsing = false
     
     var body: some View {
         Button(action: { onTap?() }) {
             ZStack {
+                // Pulsing highlight ring
+                if isHighlighted {
+                    Circle()
+                        .strokeBorder(Color.pantanalGold.opacity(isPulsing ? 0.4 : 0.15), lineWidth: 3)
+                        .frame(width: 56, height: 56)
+                        .scaleEffect(isPulsing ? 1.15 : 1.0)
+                }
+                
                 Circle()
-                    .fill(Color.pantanalGold.opacity(0.12))
+                    .fill(Color.pantanalGold.opacity(isHighlighted ? 0.18 : 0.12))
                     .frame(width: 44, height: 44)
                 
                 Circle()
-                    .strokeBorder(Color.pantanalGold.opacity(0.3), lineWidth: 1.5)
+                    .strokeBorder(Color.pantanalGold.opacity(isHighlighted ? 0.5 : 0.3), lineWidth: 1.5)
                     .frame(width: 44, height: 44)
                 
                 if isPlaying {
@@ -290,7 +416,23 @@ struct PlayButton: View {
             }
         }
         .buttonStyle(.plain)
-        .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
+        .shadow(color: isHighlighted ? Color.pantanalGold.opacity(0.3) : .black.opacity(0.3), radius: isHighlighted ? 12 : 8, y: 4)
+        .onAppear {
+            updatePulseState()
+        }
+        .onReceive(Just(isHighlighted)) { _ in
+            updatePulseState()
+        }
+    }
+    
+    private func updatePulseState() {
+        if isHighlighted && !isPulsing {
+            withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
+                isPulsing = true
+            }
+        } else if !isHighlighted && isPulsing {
+            isPulsing = false
+        }
     }
 }
 

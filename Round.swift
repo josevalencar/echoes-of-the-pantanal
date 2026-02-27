@@ -51,24 +51,25 @@ extension GameRound {
             id: 1,
             correctAnimal: .harpyEagle,
             challengeType: .soundToName,
-            options: [.harpyEagle, .toucan, .hyacinthMacaw, .jabiru].shuffled()
+            options: [.harpyEagle, .toucan, .hyacinthMacaw, .wailingFrog].shuffled()
         ),
         
         // Round 2: Scarlet Macaw - Sound → Image
+        // Distractors are visually distinct birds with images
         GameRound(
             id: 2,
             correctAnimal: .scarletMacaw,
             challengeType: .soundToImage,
-            options: [.scarletMacaw, .harpyEagle, .jabiru, .jaguar].shuffled()
+            options: [.scarletMacaw, .toucan, .parakeet, .owl].shuffled()
         ),
         
         // Round 3: Jabiru - Image → Sound
-        // Uses distractor animals that have actual sound files
+        // Uses distractor animals that have actual sound files: aracua, ra-chorona, bemtevi, tuiuiu
         GameRound(
             id: 3,
             correctAnimal: .jabiru,
             challengeType: .imageToSound,
-            options: [.jabiru, .greatKiskadee, .chachalaca, .wailingFrog].shuffled()
+            options: [.jabiru, .chachalaca, .wailingFrog, .greatKiskadee].shuffled()
         ),
         
         // Round 4: Jaguar - Sound → Name
@@ -76,7 +77,7 @@ extension GameRound {
             id: 4,
             correctAnimal: .jaguar,
             challengeType: .soundToName,
-            options: [.jaguar, .caiman, .anaconda, .tapir].shuffled()
+            options: [.jaguar, .manedWolf, .howlerMonkey, .giantOtter].shuffled()
         )
     ]
     
