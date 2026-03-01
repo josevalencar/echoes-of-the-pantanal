@@ -22,10 +22,18 @@ struct BioacousticsEduView: View {
     @State private var spectrogramHistory: [[Float]] = []
     @State private var frequencyMagnitudes: [Float] = []
     
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    
     private let soundPlayer = SoundPlayer.shared
     private let audioManager = AudioManager.shared
     
     private let totalSteps = 4
+    
+    /// Adaptive layout values based on device size class
+    private var isRegularWidth: Bool { horizontalSizeClass == .regular }
+    private var maxContentWidth: CGFloat { isRegularWidth ? 600 : .infinity }
+    private var horizontalPadding: CGFloat { isRegularWidth ? 40 : 24 }
+    private var spectrogramHeight: CGFloat { isRegularWidth ? 140 : 120 }
     
     /// Whether we're in microphone mode (step 3)
     private var useMicrophone: Bool { currentStep == 3 }
@@ -173,7 +181,8 @@ struct BioacousticsEduView: View {
             if useMicrophone {
                 // Step 3: Microphone mode - custom card for mic input
                 microphoneRecorderCard
-                    .padding(.horizontal, 24)
+                    .frame(maxWidth: maxContentWidth)
+                    .padding(.horizontal, horizontalPadding)
             } else {
                 // Steps 0-2: Sound playback using RoundRecorderDevice
                 RoundRecorderDevice(
@@ -182,11 +191,12 @@ struct BioacousticsEduView: View {
                     frequencyMagnitudes: frequencyMagnitudes,
                     playbackState: soundPlayer.state,
                     onButtonTap: handlePlaybackButtonTap,
-                    spectrogramHeight: 120,
-                    isRegularWidth: false,
+                    spectrogramHeight: spectrogramHeight,
+                    isRegularWidth: isRegularWidth,
                     highlightButton: currentStep == 0 && !soundPlayer.isPlaying
                 )
-                .padding(.horizontal, 24)
+                .frame(maxWidth: maxContentWidth)
+                .padding(.horizontal, horizontalPadding)
             }
             
             // Tooltip cards
@@ -210,28 +220,33 @@ struct BioacousticsEduView: View {
     
     /// Microphone recorder card for step 3
     private var microphoneRecorderCard: some View {
-        VStack(spacing: 0) {
+        let cardPadding: CGFloat = isRegularWidth ? 16 : 12
+        let statusFontSize: CGFloat = isRegularWidth ? 10 : 8
+        let vuBarSize: CGFloat = isRegularWidth ? 12 : 10
+        let cornerRadius: CGFloat = isRegularWidth ? 16 : 12
+        
+        return VStack(spacing: 0) {
             // Mini header with status
             HStack {
                 HStack(spacing: 6) {
                     Circle()
                         .fill(Color.pantanalGold)
-                        .frame(width: 8, height: 8)
+                        .frame(width: isRegularWidth ? 8 : 6, height: isRegularWidth ? 8 : 6)
                         .shadow(color: Color.pantanalGold.opacity(0.5), radius: 4)
                     
                     Text("LISTENING")
-                        .font(.pantanalMono(10))
+                        .font(.pantanalMono(statusFontSize))
                         .foregroundStyle(Color.textMuted)
                 }
                 
                 Spacer()
                 
                 Text("You")
-                    .font(.pantanalMono(10))
+                    .font(.pantanalMono(statusFontSize))
                     .foregroundStyle(Color.textMuted)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
+            .padding(.horizontal, cardPadding + 4)
+            .padding(.vertical, isRegularWidth ? 14 : 12)
             
             // Spectrogram display
             ZStack {
@@ -242,40 +257,40 @@ struct BioacousticsEduView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                     .padding(3)
             }
-            .frame(height: 120)
-            .padding(.horizontal, 12)
-            .padding(.bottom, 12)
+            .frame(height: spectrogramHeight)
+            .padding(.horizontal, cardPadding)
+            .padding(.bottom, isRegularWidth ? 12 : 8)
             
             // VU meter row
-            HStack(spacing: 3) {
+            HStack(spacing: isRegularWidth ? 3 : 2) {
                 ForEach(0..<12, id: \.self) { index in
                     let level = micAverageLevel * 3.0
                     let isActive = index < Int(level * 12)
                     
                     RoundedRectangle(cornerRadius: 1)
                         .fill(vuBarColor(for: index, isActive: isActive))
-                        .frame(width: 12, height: 12)
+                        .frame(width: vuBarSize, height: vuBarSize)
                 }
                 
                 Spacer()
                 
                 // Mic icon (no button needed - always listening)
                 Image(systemName: "mic.fill")
-                    .font(.system(size: 16))
+                    .font(.system(size: isRegularWidth ? 18 : 16))
                     .foregroundStyle(Color.pantanalGold)
-                    .frame(width: 44, height: 44)
+                    .frame(width: isRegularWidth ? 52 : 44, height: isRegularWidth ? 52 : 44)
                     .background(
                         Circle()
                             .fill(Color.pantanalGold.opacity(0.15))
                     )
             }
-            .padding(.horizontal, 12)
-            .padding(.bottom, 16)
+            .padding(.horizontal, cardPadding)
+            .padding(.bottom, isRegularWidth ? 16 : 12)
         }
         .background(Color(red: 26/255, green: 29/255, blue: 27/255))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: cornerRadius)
                 .strokeBorder(Color.white.opacity(0.06), lineWidth: 1)
         )
     }

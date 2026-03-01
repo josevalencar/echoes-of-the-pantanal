@@ -192,8 +192,9 @@ struct RoundView: View {
             showResult = true
             
             if animal == round.correctAnimal {
-                // Stop the sound and play success haptic
+                // Stop the sound, play success haptic and correct answer chime
                 soundPlayer.stop()
+                soundPlayer.playEffect("correct")
                 HapticManager.shared.playCorrectAnswerHaptic()
             } else {
                 // Play wrong answer haptic and mark as eliminated

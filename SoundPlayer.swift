@@ -48,12 +48,54 @@ final class SoundPlayer: ObservableObject, @unchecked Sendable {
     private let outputBands = 64
     private let processingQueue = DispatchQueue(label: "com.pantanal.sound.processing")
     
+    /// Separate player for sound effects (doesn't interrupt main audio)
+    private var effectPlayer: AVAudioPlayer?
+    
     private init() {
         fftSetup = vDSP_DFT_zop_CreateSetup(
             nil,
             vDSP_Length(fftSize),
             .FORWARD
         )
+    }
+    
+    /// Play a one-shot sound effect (e.g., correct answer chime)
+    /// This uses a separate player so it doesn't interrupt the main audio engine
+    func playEffect(_ soundFile: String) {
+        // Try multiple locations for the sound file
+        var url: URL?
+        
+        // First try: root of bundle
+        url = Bundle.main.url(forResource: soundFile, withExtension: "m4a")
+        
+        // Second try: Sounds subdirectory
+        if url == nil {
+            url = Bundle.main.url(forResource: soundFile, withExtension: "m4a", subdirectory: "Sounds")
+        }
+        
+        // Third try: direct path construction for Swift Playgrounds
+        if url == nil {
+            if let bundlePath = Bundle.main.resourcePath {
+                let directPath = URL(fileURLWithPath: bundlePath)
+                    .appendingPathComponent("Sounds")
+                    .appendingPathComponent("\(soundFile).m4a")
+                if FileManager.default.fileExists(atPath: directPath.path) {
+                    url = directPath
+                }
+            }
+        }
+        
+        guard let soundURL = url else {
+            print("SoundPlayer: Could not find effect file: \(soundFile).m4a")
+            return
+        }
+        
+        do {
+            effectPlayer = try AVAudioPlayer(contentsOf: soundURL)
+            effectPlayer?.play()
+        } catch {
+            print("SoundPlayer: Failed to play effect - \(error)")
+        }
     }
     
     deinit {
