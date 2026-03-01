@@ -3,3 +3,9 @@ intro-v2.html
 # Local documentation
 Journal.md
 Reference/
+
+# Xcode user state
+*.xcuserstate
+
+# Backup files
+*_backup.swift
